@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: control-plane
+            directory: apps/control-plane
+            dependency-file: apps/control-plane/go.sum
+          - name: demo-service
+            directory: demo/demo-service
+            dependency-file: demo/demo-service/go.mod
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: ${{ matrix.dependency-file }}
+
+      - name: Check formatting
+        working-directory: ${{ matrix.directory }}
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        working-directory: ${{ matrix.directory }}
+        run: go vet ./...
+
+      - name: Test
+        working-directory: ${{ matrix.directory }}
+        run: go test ./...
+
+  web-console:
+    name: Web console
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web-console
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/web-console/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
