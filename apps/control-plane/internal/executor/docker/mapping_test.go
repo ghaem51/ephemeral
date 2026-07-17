@@ -22,6 +22,9 @@ func TestCreateOptionsAreRestrictedAndLabeled(t *testing.T) {
 	if options.Name != "envpilot-env-1" || options.Config.Image != spec.Image {
 		t.Fatalf("unexpected create options: %#v", options)
 	}
+	if len(options.Config.Env) != 1 || options.Config.Env[0] != "ENVIRONMENT_NAME=preview" {
+		t.Fatalf("unexpected environment configuration: %#v", options.Config.Env)
+	}
 	wantLabels := map[string]string{
 		LabelManaged: "true", LabelEnvironmentID: spec.ID, LabelEnvironmentName: spec.Name,
 	}

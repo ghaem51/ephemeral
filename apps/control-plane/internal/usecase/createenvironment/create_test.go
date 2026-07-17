@@ -119,6 +119,19 @@ func TestCreateValidationRules(t *testing.T) {
 	}
 }
 
+func TestSimulateFailureSelectsUnhealthyDemoImage(t *testing.T) {
+	spec, err := validate(Request{
+		Name: "preview", Image: "envpilot/demo-service:healthy", ContainerPort: 8080,
+		SimulateFailure: true,
+	})
+	if err != nil {
+		t.Fatalf("validate request: %v", err)
+	}
+	if spec.Image != unhealthyDemoImage {
+		t.Fatalf("expected image %q, got %q", unhealthyDemoImage, spec.Image)
+	}
+}
+
 func TestCreateRejectsDuplicateActiveName(t *testing.T) {
 	block := make(chan struct{})
 	fake := &executortest.Fake{CreateFunc: func(context.Context, domain.EnvironmentSpec) (domain.RuntimeInfo, error) {

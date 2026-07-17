@@ -41,6 +41,7 @@ func (h *EnvironmentHandler) Create(c *gin.Context) {
 
 	result, err := h.service.Create(c.Request.Context(), createenvironment.Request{
 		Name: request.Name, Image: request.Image, ContainerPort: request.ContainerPort,
+		SimulateFailure: request.SimulateFailure,
 	})
 	if err != nil {
 		writeDomainError(c, err)

@@ -17,6 +17,7 @@ func createOptions(spec domain.EnvironmentSpec) client.ContainerCreateOptions {
 		Name: containerName(spec),
 		Config: &container.Config{
 			Image: spec.Image,
+			Env:   []string{"ENVIRONMENT_NAME=" + spec.Name},
 			Labels: map[string]string{
 				LabelManaged: "true", LabelEnvironmentID: spec.ID, LabelEnvironmentName: spec.Name,
 			},

@@ -18,6 +18,8 @@ import (
 
 var environmentNamePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 
+const unhealthyDemoImage = "envpilot/demo-service:unhealthy"
+
 const (
 	StepValidateRequest = "VALIDATE_REQUEST"
 	StepCreateContainer = "CREATE_CONTAINER"
@@ -27,9 +29,10 @@ const (
 )
 
 type Request struct {
-	Name          string
-	Image         string
-	ContainerPort int
+	Name            string
+	Image           string
+	ContainerPort   int
+	SimulateFailure bool
 }
 
 type UseCase struct {
@@ -166,6 +169,9 @@ func validate(request Request) (domain.EnvironmentSpec, error) {
 	}
 	if spec.Image == "" {
 		return domain.EnvironmentSpec{}, fmt.Errorf("image is required: %w", domain.ErrValidation)
+	}
+	if request.SimulateFailure {
+		spec.Image = unhealthyDemoImage
 	}
 	if spec.ContainerPort < 1 || spec.ContainerPort > 65535 {
 		return domain.EnvironmentSpec{}, fmt.Errorf("container port must be between 1 and 65535: %w", domain.ErrValidation)

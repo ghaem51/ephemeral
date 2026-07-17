@@ -40,10 +40,13 @@ func TestCreateEnvironment(t *testing.T) {
 		if request.Name != "feature-payment" || request.Image != "envpilot/demo-service:healthy" || request.ContainerPort != 8080 {
 			t.Fatalf("unexpected create request: %#v", request)
 		}
+		if !request.SimulateFailure {
+			t.Fatal("expected simulateFailure to be passed to the use case")
+		}
 		return &result, nil
 	}
 	router := NewRouter(NewEnvironmentHandler(service))
-	body := `{"name":"feature-payment","image":"envpilot/demo-service:healthy","containerPort":8080,"simulateFailure":false}`
+	body := `{"name":"feature-payment","image":"envpilot/demo-service:healthy","containerPort":8080,"simulateFailure":true}`
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/environments", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-Request-ID", "request-123")
