@@ -389,7 +389,8 @@ input:not([type]) {
   appearance: none;
 }
 
-.operator-form input:not([type="radio"]) {
+.operator-form input:not([type="radio"]),
+.operator-form textarea {
   background: white;
   border: 1px solid #bfcac2;
   border-radius: 0.55rem;
@@ -400,7 +401,12 @@ input:not([type]) {
   width: 100%;
 }
 
-.operator-form input:focus {
+.operator-form textarea {
+  resize: vertical;
+}
+
+.operator-form input:focus,
+.operator-form textarea:focus {
   border-color: #1e6641;
   box-shadow: 0 0 0 3px rgb(30 102 65 / 14%);
   outline: none;

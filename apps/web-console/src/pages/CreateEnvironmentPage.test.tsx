@@ -54,6 +54,7 @@ describe('CreateEnvironmentPage validation', () => {
     await user.type(screen.getByLabelText('Container port'), '80')
     await user.clear(screen.getByLabelText('Health check path'))
     await user.type(screen.getByLabelText('Health check path'), '/ready')
+    await user.type(screen.getByLabelText(/Environment variables/), 'API_URL=https://api.example.test{enter}FEATURE_FLAG=true')
     await user.click(screen.getByRole('button', { name: 'Create environment' }))
 
     expect(vi.mocked(createEnvironment).mock.calls[0]?.[0]).toEqual({
@@ -61,8 +62,20 @@ describe('CreateEnvironmentPage validation', () => {
       image: 'nginx:latest',
       containerPort: 80,
       healthCheckPath: '/ready',
+      environmentVariables: ['API_URL=https://api.example.test', 'FEATURE_FLAG=true'],
       simulateFailure: false,
     })
+  })
+
+  it('does not submit invalid or reserved environment variables', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.type(screen.getByLabelText('Environment name'), 'invalid-env')
+    await user.type(screen.getByLabelText(/Environment variables/), 'APP_VERSION=override')
+    await user.click(screen.getByRole('button', { name: 'Create environment' }))
+
+    expect(createEnvironment).not.toHaveBeenCalled()
   })
 
   it('rejects a health check path without a leading slash', async () => {

@@ -22,7 +22,7 @@ func TestCreateOptionsAreRestrictedAndLabeled(t *testing.T) {
 	if options.Name != "envpilot-env-1" || options.Config.Image != spec.Image {
 		t.Fatalf("unexpected create options: %#v", options)
 	}
-	if len(options.Config.Env) != 2 || options.Config.Env[0] != "ENVIRONMENT_NAME=preview" || options.Config.Env[1] != "APP_VERSION=1.2.3" {
+	if len(options.Config.Env) != 4 || options.Config.Env[0] != "ENVIRONMENT_NAME=preview" || options.Config.Env[1] != "APP_VERSION=1.2.3" || options.Config.Env[2] != "LOG_LEVEL=debug" || options.Config.Env[3] != "FEATURE_FLAG=true" {
 		t.Fatalf("unexpected environment configuration: %#v", options.Config.Env)
 	}
 	wantLabels := map[string]string{
@@ -149,6 +149,7 @@ func TestCheckHealthRetriesUntilSuccess(t *testing.T) {
 func validSpec() domain.EnvironmentSpec {
 	return domain.EnvironmentSpec{
 		ID: "env-1", Name: "preview", Image: "envpilot/demo-service:healthy", ContainerPort: 8080,
-		ApplicationVersion: "1.2.3",
+		ApplicationVersion:   "1.2.3",
+		EnvironmentVariables: []string{"LOG_LEVEL=debug", "FEATURE_FLAG=true"},
 	}
 }

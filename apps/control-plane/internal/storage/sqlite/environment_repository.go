@@ -3,20 +3,25 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/domain"
 )
 
-const environmentColumns = `id, name, image, container_port, health_check_path, application_version, host_port, container_id, url, status, error_message, created_at, updated_at`
+const environmentColumns = `id, name, image, container_port, health_check_path, application_version, environment_variables, host_port, container_id, url, status, error_message, created_at, updated_at`
 
 func (r *EnvironmentRepository) Create(ctx context.Context, environment *domain.Environment) error {
-	_, err := r.db.ExecContext(ctx, `
+	variables, err := json.Marshal(append([]string{}, environment.EnvironmentVariables...))
+	if err != nil {
+		return fmt.Errorf("encode environment variables: %w", err)
+	}
+	_, err = r.db.ExecContext(ctx, `
         INSERT INTO environments (`+environmentColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		environment.ID, environment.Name, environment.Image, environment.ContainerPort,
-		environment.HealthCheckPath, environment.ApplicationVersion,
+		environment.HealthCheckPath, environment.ApplicationVersion, string(variables),
 		environment.HostPort, environment.ContainerID, environment.URL, environment.Status,
 		environment.ErrorMessage, formatTime(environment.CreatedAt), formatTime(environment.UpdatedAt),
 	)
@@ -27,13 +32,17 @@ func (r *EnvironmentRepository) Create(ctx context.Context, environment *domain.
 }
 
 func (r *EnvironmentRepository) Update(ctx context.Context, environment *domain.Environment) error {
+	variables, err := json.Marshal(append([]string{}, environment.EnvironmentVariables...))
+	if err != nil {
+		return fmt.Errorf("encode environment variables: %w", err)
+	}
 	result, err := r.db.ExecContext(ctx, `
         UPDATE environments
-		SET name = ?, image = ?, container_port = ?, health_check_path = ?, application_version = ?, host_port = ?, container_id = ?,
+		SET name = ?, image = ?, container_port = ?, health_check_path = ?, application_version = ?, environment_variables = ?, host_port = ?, container_id = ?,
             url = ?, status = ?, error_message = ?, created_at = ?, updated_at = ?
         WHERE id = ?`,
 		environment.Name, environment.Image, environment.ContainerPort, environment.HealthCheckPath,
-		environment.ApplicationVersion, environment.HostPort,
+		environment.ApplicationVersion, string(variables), environment.HostPort,
 		environment.ContainerID, environment.URL, environment.Status, environment.ErrorMessage,
 		formatTime(environment.CreatedAt), formatTime(environment.UpdatedAt), environment.ID,
 	)
@@ -80,13 +89,17 @@ func (r *EnvironmentRepository) List(ctx context.Context) ([]domain.Environment,
 func scanEnvironment(row scanner) (*domain.Environment, error) {
 	var environment domain.Environment
 	var createdAt, updatedAt string
+	var variables string
 	if err := row.Scan(
 		&environment.ID, &environment.Name, &environment.Image, &environment.ContainerPort,
-		&environment.HealthCheckPath, &environment.ApplicationVersion,
+		&environment.HealthCheckPath, &environment.ApplicationVersion, &variables,
 		&environment.HostPort, &environment.ContainerID, &environment.URL, &environment.Status,
 		&environment.ErrorMessage, &createdAt, &updatedAt,
 	); err != nil {
 		return nil, err
+	}
+	if err := json.Unmarshal([]byte(variables), &environment.EnvironmentVariables); err != nil {
+		return nil, fmt.Errorf("decode environment variables: %w", err)
 	}
 
 	var err error

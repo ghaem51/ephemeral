@@ -66,7 +66,8 @@ func (uc *UseCase) executeRetry(ctx context.Context, environment *domain.Environ
 	spec := domain.EnvironmentSpec{
 		ID: environment.ID, Name: environment.Name, Image: environment.Image,
 		ContainerPort: environment.ContainerPort, HealthCheckPath: environment.HealthCheckPath,
-		ApplicationVersion: environment.ApplicationVersion,
+		ApplicationVersion:   environment.ApplicationVersion,
+		EnvironmentVariables: append([]string(nil), environment.EnvironmentVariables...),
 	}
 	operations := []stepOperation{
 		func(ctx context.Context) error {

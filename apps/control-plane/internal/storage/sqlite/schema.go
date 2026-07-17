@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS environments (
     container_port INTEGER NOT NULL,
 	health_check_path TEXT NOT NULL DEFAULT '/health',
     application_version TEXT NOT NULL DEFAULT '',
+	environment_variables TEXT NOT NULL DEFAULT '[]',
     host_port INTEGER NOT NULL,
     container_id TEXT NOT NULL,
     url TEXT NOT NULL,
@@ -69,6 +70,42 @@ func (s *Store) initialize(ctx context.Context) error {
 	}
 	if err := s.ensureHealthCheckPathColumn(ctx); err != nil {
 		return err
+	}
+	if err := s.ensureEnvironmentVariablesColumn(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Store) ensureEnvironmentVariablesColumn(ctx context.Context) error {
+	rows, err := s.db.QueryContext(ctx, "PRAGMA table_info(environments)")
+	if err != nil {
+		return fmt.Errorf("inspect environments schema: %w", err)
+	}
+	found := false
+	for rows.Next() {
+		var cid, notNull, primaryKey int
+		var name, columnType string
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan environments schema: %w", err)
+		}
+		if name == "environment_variables" {
+			found = true
+		}
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("close environments schema rows: %w", err)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate environments schema: %w", err)
+	}
+	if found {
+		return nil
+	}
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE environments ADD COLUMN environment_variables TEXT NOT NULL DEFAULT '[]'`); err != nil {
+		return fmt.Errorf("add environment variables column: %w", err)
 	}
 	return nil
 }

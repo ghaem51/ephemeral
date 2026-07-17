@@ -47,7 +47,7 @@ func TestCreateEnvironment(t *testing.T) {
 	result := testEnvironmentResult()
 	service := defaultStubService()
 	service.create = func(_ context.Context, request createenvironment.Request) (*environmentapi.Result, error) {
-		if request.Name != "feature-payment" || request.Image != "envpilot/demo-service:healthy" || request.ContainerPort != 8080 || request.HealthCheckPath != "/ready" {
+		if request.Name != "feature-payment" || request.Image != "envpilot/demo-service:healthy" || request.ContainerPort != 8080 || request.HealthCheckPath != "/ready" || len(request.EnvironmentVariables) != 1 || request.EnvironmentVariables[0] != "LOG_LEVEL=debug" {
 			t.Fatalf("unexpected create request: %#v", request)
 		}
 		if !request.SimulateFailure {
@@ -56,7 +56,7 @@ func TestCreateEnvironment(t *testing.T) {
 		return &result, nil
 	}
 	router := NewRouter(NewEnvironmentHandler(service))
-	body := `{"name":"feature-payment","image":"envpilot/demo-service:healthy","containerPort":8080,"healthCheckPath":"/ready","simulateFailure":true}`
+	body := `{"name":"feature-payment","image":"envpilot/demo-service:healthy","containerPort":8080,"healthCheckPath":"/ready","environmentVariables":["LOG_LEVEL=debug"],"simulateFailure":true}`
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/environments", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-Request-ID", "request-123")

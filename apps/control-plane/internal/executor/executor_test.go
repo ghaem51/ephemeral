@@ -20,7 +20,7 @@ func TestWorkflowCanUseEnvironmentExecutor(t *testing.T) {
 	fake := &executortest.Fake{
 		CreateFunc: func(_ context.Context, got domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
 			calls = append(calls, "create")
-			if got != spec {
+			if !reflect.DeepEqual(got, spec) {
 				t.Fatalf("unexpected spec: %#v", got)
 			}
 			return runtime, nil

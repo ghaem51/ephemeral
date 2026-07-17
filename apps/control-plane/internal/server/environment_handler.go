@@ -28,12 +28,13 @@ func NewEnvironmentHandler(service EnvironmentService) *EnvironmentHandler {
 }
 
 type createEnvironmentRequest struct {
-	Name               string `json:"name"`
-	Image              string `json:"image"`
-	ContainerPort      int    `json:"containerPort"`
-	HealthCheckPath    string `json:"healthCheckPath"`
-	SimulateFailure    bool   `json:"simulateFailure"`
-	ApplicationVersion string `json:"applicationVersion"`
+	Name                 string   `json:"name"`
+	Image                string   `json:"image"`
+	ContainerPort        int      `json:"containerPort"`
+	HealthCheckPath      string   `json:"healthCheckPath"`
+	SimulateFailure      bool     `json:"simulateFailure"`
+	ApplicationVersion   string   `json:"applicationVersion"`
+	EnvironmentVariables []string `json:"environmentVariables"`
 }
 
 func (h *EnvironmentHandler) Create(c *gin.Context) {
@@ -45,9 +46,10 @@ func (h *EnvironmentHandler) Create(c *gin.Context) {
 
 	result, err := h.service.Create(c.Request.Context(), createenvironment.Request{
 		Name: request.Name, Image: request.Image, ContainerPort: request.ContainerPort,
-		HealthCheckPath:    request.HealthCheckPath,
-		SimulateFailure:    request.SimulateFailure,
-		ApplicationVersion: request.ApplicationVersion,
+		HealthCheckPath:      request.HealthCheckPath,
+		SimulateFailure:      request.SimulateFailure,
+		ApplicationVersion:   request.ApplicationVersion,
+		EnvironmentVariables: request.EnvironmentVariables,
 	})
 	if err != nil {
 		writeDomainError(c, err)
@@ -98,20 +100,21 @@ func (h *EnvironmentHandler) Retry(c *gin.Context) {
 }
 
 type environmentResponse struct {
-	ID                 string            `json:"id"`
-	Name               string            `json:"name"`
-	Image              string            `json:"image"`
-	ContainerPort      int               `json:"containerPort"`
-	HealthCheckPath    string            `json:"healthCheckPath"`
-	ApplicationVersion string            `json:"applicationVersion,omitempty"`
-	HostPort           int               `json:"hostPort"`
-	ContainerID        string            `json:"containerId"`
-	URL                string            `json:"url"`
-	Status             string            `json:"status"`
-	ErrorMessage       string            `json:"errorMessage,omitempty"`
-	CreatedAt          time.Time         `json:"createdAt"`
-	UpdatedAt          time.Time         `json:"updatedAt"`
-	LatestWorkflow     *workflowResponse `json:"latestWorkflow"`
+	ID                   string            `json:"id"`
+	Name                 string            `json:"name"`
+	Image                string            `json:"image"`
+	ContainerPort        int               `json:"containerPort"`
+	HealthCheckPath      string            `json:"healthCheckPath"`
+	ApplicationVersion   string            `json:"applicationVersion,omitempty"`
+	EnvironmentVariables []string          `json:"environmentVariables"`
+	HostPort             int               `json:"hostPort"`
+	ContainerID          string            `json:"containerId"`
+	URL                  string            `json:"url"`
+	Status               string            `json:"status"`
+	ErrorMessage         string            `json:"errorMessage,omitempty"`
+	CreatedAt            time.Time         `json:"createdAt"`
+	UpdatedAt            time.Time         `json:"updatedAt"`
+	LatestWorkflow       *workflowResponse `json:"latestWorkflow"`
 }
 
 type workflowResponse struct {
@@ -141,9 +144,10 @@ func toEnvironmentResponse(result *environmentapi.Result) environmentResponse {
 	response := environmentResponse{
 		ID: environment.ID, Name: environment.Name, Image: environment.Image,
 		ContainerPort: environment.ContainerPort, HealthCheckPath: environment.HealthCheckPath,
-		HostPort:           environment.HostPort,
-		ApplicationVersion: environment.ApplicationVersion,
-		ContainerID:        environment.ContainerID, URL: environment.URL, Status: string(environment.Status),
+		HostPort:             environment.HostPort,
+		ApplicationVersion:   environment.ApplicationVersion,
+		EnvironmentVariables: append([]string{}, environment.EnvironmentVariables...),
+		ContainerID:          environment.ContainerID, URL: environment.URL, Status: string(environment.Status),
 		ErrorMessage: environment.ErrorMessage, CreatedAt: environment.CreatedAt, UpdatedAt: environment.UpdatedAt,
 	}
 	if result.Workflow != nil {

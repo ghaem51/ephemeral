@@ -112,7 +112,7 @@ func TestRetryAfterHealthCheckFailure(t *testing.T) {
 		},
 		CreateFunc: func(_ context.Context, spec domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
 			calls = append(calls, "create")
-			if spec.ApplicationVersion != "1.2.3" || spec.HealthCheckPath != "/ready" {
+			if spec.ApplicationVersion != "1.2.3" || spec.HealthCheckPath != "/ready" || len(spec.EnvironmentVariables) != 1 || spec.EnvironmentVariables[0] != "LOG_LEVEL=debug" {
 				t.Fatalf("retry lost saved configuration: %#v", spec)
 			}
 			return newRuntime, nil
@@ -194,7 +194,8 @@ func createEnvironment(t *testing.T, store *sqlite.Store, status domain.Environm
 	environment := &domain.Environment{
 		ID: "env-1", Name: "preview", Image: "envpilot/demo-service:healthy", ContainerPort: 8080,
 		HealthCheckPath: "/ready", ApplicationVersion: "1.2.3",
-		ContainerID: "container-1", HostPort: 49152, URL: "http://localhost:49152",
+		EnvironmentVariables: []string{"LOG_LEVEL=debug"},
+		ContainerID:          "container-1", HostPort: 49152, URL: "http://localhost:49152",
 		Status: status, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := store.Environments().Create(context.Background(), environment); err != nil {

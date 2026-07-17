@@ -60,6 +60,9 @@ func TestCreateRunsSuccessfulWorkflow(t *testing.T) {
 	if persisted.HealthCheckPath != defaultHealthCheckPath {
 		t.Fatalf("health check path was not persisted: %#v", persisted)
 	}
+	if len(persisted.EnvironmentVariables) != 1 || persisted.EnvironmentVariables[0] != "LOG_LEVEL=debug" {
+		t.Fatalf("environment variables were not persisted: %#v", persisted)
+	}
 	if workflow.Status != domain.WorkflowStatusSucceeded || workflow.StartedAt == nil || workflow.CompletedAt == nil {
 		t.Fatalf("workflow did not succeed: %#v", workflow)
 	}
@@ -113,6 +116,9 @@ func TestCreateValidationRules(t *testing.T) {
 		{Name: "preview", Image: "", ContainerPort: 8080},
 		{Name: "preview", Image: "demo:latest", ContainerPort: 8080, HealthCheckPath: "health"},
 		{Name: "preview", Image: "demo:latest", ContainerPort: 8080, HealthCheckPath: "/health?verbose=true"},
+		{Name: "preview", Image: "demo:latest", ContainerPort: 8080, EnvironmentVariables: []string{"INVALID"}},
+		{Name: "preview", Image: "demo:latest", ContainerPort: 8080, EnvironmentVariables: []string{"APP_VERSION=override"}},
+		{Name: "preview", Image: "demo:latest", ContainerPort: 8080, EnvironmentVariables: []string{"KEY=one", "KEY=two"}},
 		{Name: "preview", Image: "demo:latest", ContainerPort: 0},
 		{Name: "preview", Image: "demo:latest", ContainerPort: 65536},
 	}
@@ -383,7 +389,10 @@ func waitForLatestWorkflow(t *testing.T, uc *UseCase, store *sqlite.Store, envir
 }
 
 func validRequest() Request {
-	return Request{Name: "preview", Image: "demo:latest", ContainerPort: 8080, ApplicationVersion: "1.2.3"}
+	return Request{
+		Name: "preview", Image: "demo:latest", ContainerPort: 8080, ApplicationVersion: "1.2.3",
+		EnvironmentVariables: []string{"LOG_LEVEL=debug"},
+	}
 }
 
 func testRuntime() domain.RuntimeInfo {

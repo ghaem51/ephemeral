@@ -17,6 +17,7 @@ func createOptions(spec domain.EnvironmentSpec) client.ContainerCreateOptions {
 	if spec.ApplicationVersion != "" {
 		environment = append(environment, "APP_VERSION="+spec.ApplicationVersion)
 	}
+	environment = append(environment, spec.EnvironmentVariables...)
 	return client.ContainerCreateOptions{
 		Name: containerName(spec),
 		Config: &container.Config{

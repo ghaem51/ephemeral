@@ -94,6 +94,9 @@ export function EnvironmentDetailsPage() {
             <Metadata label="Container ID"><code title={data.containerId}>{shortContainerID(data.containerId)}</code></Metadata>
             <Metadata label="Ports">Host {data.hostPort || '—'} → Container {data.containerPort}</Metadata>
             <Metadata label="Health check path"><code>{data.healthCheckPath}</code></Metadata>
+            {data.environmentVariables.length ? (
+              <Metadata label="Environment variables"><code>{data.environmentVariables.join(', ')}</code></Metadata>
+            ) : null}
             <Metadata label="Created">{formatTimestamp(data.createdAt)}</Metadata>
             <Metadata label="Updated">{formatTimestamp(data.updatedAt)}</Metadata>
           </dl>

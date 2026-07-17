@@ -41,6 +41,7 @@ export type Environment = {
   containerPort: number
   healthCheckPath: string
   applicationVersion?: string
+  environmentVariables: string[]
   hostPort: number
   containerId: string
   url: string
@@ -58,6 +59,7 @@ export type CreateEnvironmentInput = {
   healthCheckPath: string
   simulateFailure: boolean
   applicationVersion?: string
+  environmentVariables: string[]
 }
 
 export function listEnvironments() {

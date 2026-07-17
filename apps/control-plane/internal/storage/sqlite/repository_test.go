@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -18,7 +19,8 @@ func TestEnvironmentRepository(t *testing.T) {
 	now := time.Date(2026, time.July, 16, 12, 0, 0, 0, time.UTC)
 	environment := &domain.Environment{
 		ID: "env-1", Name: "preview", Image: "demo:latest", ContainerPort: 8080,
-		Status: domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
+		EnvironmentVariables: []string{"LOG_LEVEL=debug", "EMPTY="},
+		Status:               domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
 	}
 
 	if err := repository.Create(ctx, environment); err != nil {
@@ -29,7 +31,7 @@ func TestEnvironmentRepository(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get environment by ID: %v", err)
 	}
-	if *byID != *environment {
+	if !reflect.DeepEqual(*byID, *environment) {
 		t.Fatalf("environment mismatch:\nwant: %#v\n got: %#v", environment, byID)
 	}
 
@@ -218,7 +220,8 @@ func TestOpenAddsNewColumnsToExistingDatabase(t *testing.T) {
 	environment := &domain.Environment{
 		ID: "env-versioned", Name: "versioned", Image: "demo:latest", ContainerPort: 8080,
 		HealthCheckPath: "/ready", ApplicationVersion: "2.0.0",
-		Status: domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
+		EnvironmentVariables: []string{"LOG_LEVEL=debug"},
+		Status:               domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := store.Environments().Create(context.Background(), environment); err != nil {
 		t.Fatalf("create migrated environment: %v", err)
@@ -232,6 +235,9 @@ func TestOpenAddsNewColumnsToExistingDatabase(t *testing.T) {
 	}
 	if loaded.HealthCheckPath != environment.HealthCheckPath {
 		t.Fatalf("health check path was not migrated: %#v", loaded)
+	}
+	if !reflect.DeepEqual(loaded.EnvironmentVariables, environment.EnvironmentVariables) {
+		t.Fatalf("environment variables were not migrated: %#v", loaded)
 	}
 }
 

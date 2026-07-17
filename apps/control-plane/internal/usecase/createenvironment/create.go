@@ -19,6 +19,7 @@ import (
 
 var environmentNamePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 var applicationVersionPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+var environmentVariableNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 const unhealthyDemoImage = "envpilot/demo-service:unhealthy"
 const defaultHealthCheckPath = "/health"
@@ -32,12 +33,13 @@ const (
 )
 
 type Request struct {
-	Name               string
-	Image              string
-	ContainerPort      int
-	HealthCheckPath    string
-	SimulateFailure    bool
-	ApplicationVersion string
+	Name                 string
+	Image                string
+	ContainerPort        int
+	HealthCheckPath      string
+	SimulateFailure      bool
+	ApplicationVersion   string
+	EnvironmentVariables []string
 }
 
 type UseCase struct {
@@ -100,9 +102,10 @@ func (uc *UseCase) Create(ctx context.Context, request Request) (*domain.Environ
 	now := uc.now()
 	environment := &domain.Environment{
 		ID: environmentID, Name: spec.Name, Image: spec.Image, ContainerPort: spec.ContainerPort,
-		HealthCheckPath:    spec.HealthCheckPath,
-		ApplicationVersion: spec.ApplicationVersion,
-		Status:             domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
+		HealthCheckPath:      spec.HealthCheckPath,
+		ApplicationVersion:   spec.ApplicationVersion,
+		EnvironmentVariables: append([]string(nil), spec.EnvironmentVariables...),
+		Status:               domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
 	}
 	workflow, err := uc.newWorkflow(workflowID, environmentID)
 	if err != nil {
@@ -171,7 +174,8 @@ func validate(request Request) (domain.EnvironmentSpec, error) {
 	spec := domain.EnvironmentSpec{
 		Name: strings.TrimSpace(request.Name), Image: strings.TrimSpace(request.Image),
 		ContainerPort: request.ContainerPort, HealthCheckPath: strings.TrimSpace(request.HealthCheckPath),
-		ApplicationVersion: strings.TrimSpace(request.ApplicationVersion),
+		ApplicationVersion:   strings.TrimSpace(request.ApplicationVersion),
+		EnvironmentVariables: append([]string(nil), request.EnvironmentVariables...),
 	}
 	if spec.Name == "" {
 		return domain.EnvironmentSpec{}, fmt.Errorf("name is required: %w", domain.ErrValidation)
@@ -200,10 +204,37 @@ func validate(request Request) (domain.EnvironmentSpec, error) {
 	if spec.ApplicationVersion != "" && !applicationVersionPattern.MatchString(spec.ApplicationVersion) {
 		return domain.EnvironmentSpec{}, fmt.Errorf("application version must be 1-64 letters, numbers, dots, underscores, or hyphens: %w", domain.ErrValidation)
 	}
+	if err := validateEnvironmentVariables(spec.EnvironmentVariables); err != nil {
+		return domain.EnvironmentSpec{}, err
+	}
 	if spec.ContainerPort < 1 || spec.ContainerPort > 65535 {
 		return domain.EnvironmentSpec{}, fmt.Errorf("container port must be between 1 and 65535: %w", domain.ErrValidation)
 	}
 	return spec, nil
+}
+
+func validateEnvironmentVariables(variables []string) error {
+	if len(variables) > 100 {
+		return fmt.Errorf("environment variables cannot contain more than 100 entries: %w", domain.ErrValidation)
+	}
+	seen := make(map[string]struct{}, len(variables))
+	for _, variable := range variables {
+		if len(variable) > 4096 || strings.ContainsRune(variable, '\x00') {
+			return fmt.Errorf("environment variable entries must be 4096 characters or fewer and cannot contain null bytes: %w", domain.ErrValidation)
+		}
+		name, _, found := strings.Cut(variable, "=")
+		if !found || !environmentVariableNamePattern.MatchString(name) {
+			return fmt.Errorf("environment variable %q must use KEY=VALUE format with a valid name: %w", variable, domain.ErrValidation)
+		}
+		if name == "ENVIRONMENT_NAME" || name == "APP_VERSION" {
+			return fmt.Errorf("environment variable %q is managed by EnvPilot: %w", name, domain.ErrValidation)
+		}
+		if _, duplicate := seen[name]; duplicate {
+			return fmt.Errorf("environment variable %q is duplicated: %w", name, domain.ErrValidation)
+		}
+		seen[name] = struct{}{}
+	}
+	return nil
 }
 
 func randomID() (string, error) {

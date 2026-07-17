@@ -18,6 +18,7 @@ export function CreateEnvironmentPage() {
   const [containerPort, setContainerPort] = useState('8080')
   const [healthCheckPath, setHealthCheckPath] = useState('/health')
   const [applicationVersion, setApplicationVersion] = useState('')
+  const [environmentVariables, setEnvironmentVariables] = useState('')
   const mutation = useMutation({
     mutationFn: createEnvironment,
     onSuccess: async (environment) => {
@@ -33,14 +34,17 @@ export function CreateEnvironmentPage() {
     const normalizedVersion = applicationVersion.trim()
     const normalizedImage = profile === 'custom' ? image.trim() : healthyDemoImage
     const parsedContainerPort = Number(containerPort)
+    const parsedEnvironmentVariables = parseEnvironmentVariables(environmentVariables)
     if (!isValidEnvironmentName(normalizedName) || !isValidApplicationVersion(normalizedVersion)) return
     if (!normalizedImage || !Number.isInteger(parsedContainerPort) || parsedContainerPort < 1 || parsedContainerPort > 65535) return
     if (!healthCheckPath.startsWith('/') || healthCheckPath.includes('?') || healthCheckPath.includes('#')) return
+    if (parsedEnvironmentVariables === null) return
     mutation.mutate({
       name: normalizedName,
       image: normalizedImage,
       containerPort: parsedContainerPort,
       healthCheckPath,
+      environmentVariables: parsedEnvironmentVariables,
       simulateFailure: profile === 'unhealthy',
       ...(normalizedVersion ? { applicationVersion: normalizedVersion } : {}),
     })
@@ -158,6 +162,18 @@ export function CreateEnvironmentPage() {
             />
             <p className="field-help">Passed to the container as APP_VERSION.</p>
           </div>
+          <div>
+            <label className="field-label" htmlFor="environment-variables">Environment variables <span>Optional</span></label>
+            <textarea
+              id="environment-variables"
+              value={environmentVariables}
+              onChange={(event) => setEnvironmentVariables(event.target.value)}
+              placeholder={'API_URL=https://api.example.test\nFEATURE_FLAG=true'}
+              rows={4}
+              maxLength={65535}
+            />
+            <p className="field-help">One KEY=VALUE entry per line. Values are stored and displayed in plaintext; do not use secrets. ENVIRONMENT_NAME and APP_VERSION are reserved.</p>
+          </div>
         </div>
 
         {mutation.isError ? <SubmissionError error={mutation.error} /> : null}
@@ -171,6 +187,19 @@ export function CreateEnvironmentPage() {
       </form>
     </section>
   )
+}
+
+function parseEnvironmentVariables(input: string): string[] | null {
+  const variables = input.split('\n').map((line) => line.trim()).filter(Boolean)
+  if (variables.length > 100) return null
+  const names = new Set<string>()
+  for (const variable of variables) {
+    const separator = variable.indexOf('=')
+    const name = separator < 0 ? '' : variable.slice(0, separator)
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || names.has(name) || name === 'ENVIRONMENT_NAME' || name === 'APP_VERSION') return null
+    names.add(name)
+  }
+  return variables
 }
 
 function ProfileOption({
