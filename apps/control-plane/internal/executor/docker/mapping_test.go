@@ -122,7 +122,10 @@ func TestHealthCheckURLUsesInternalHostWithoutChangingPublicRuntimeURL(t *testin
 
 func TestCheckHealthRetriesUntilSuccess(t *testing.T) {
 	var attempts atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/ready" {
+			t.Errorf("expected custom health path /ready, got %q", request.URL.Path)
+		}
 		if attempts.Add(1) < 3 {
 			http.Error(response, "not ready", http.StatusServiceUnavailable)
 			return
@@ -131,11 +134,11 @@ func TestCheckHealthRetriesUntilSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 	executor := &Executor{
-		healthClient: server.Client(), healthPath: "/health",
+		healthClient: server.Client(), healthPath: "/fallback-health",
 		healthAttempts: 3, healthInterval: time.Millisecond,
 	}
 
-	if err := executor.CheckHealth(context.Background(), domain.RuntimeInfo{URL: server.URL}); err != nil {
+	if err := executor.CheckHealth(context.Background(), domain.RuntimeInfo{URL: server.URL, HealthCheckPath: "/ready"}); err != nil {
 		t.Fatalf("check health: %v", err)
 	}
 	if attempts.Load() != 3 {

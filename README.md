@@ -83,7 +83,8 @@ node's Docker socket into the API process.
 
 The local stack accepts custom Docker image names so operators can test more
 than the two bundled demo images. Custom images must already be available to
-the Docker Engine, expose an HTTP port, and respond successfully on `/health`.
+the Docker Engine and expose an HTTP port. The create form defaults readiness
+checks to `/health`, and operators can change that path for each environment.
 Set `DOCKER_ALLOWED_IMAGES` to a comma-separated allowlist instead of `*` when
 custom images are not required. EnvPilot still enforces loopback-only port
 publishing, no privileged mode, and no host mounts. Those controls reduce

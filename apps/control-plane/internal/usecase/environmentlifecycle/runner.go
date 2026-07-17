@@ -65,7 +65,8 @@ func (uc *UseCase) executeRetry(ctx context.Context, environment *domain.Environ
 	runtime := runtimeFromEnvironment(environment)
 	spec := domain.EnvironmentSpec{
 		ID: environment.ID, Name: environment.Name, Image: environment.Image,
-		ContainerPort: environment.ContainerPort, ApplicationVersion: environment.ApplicationVersion,
+		ContainerPort: environment.ContainerPort, HealthCheckPath: environment.HealthCheckPath,
+		ApplicationVersion: environment.ApplicationVersion,
 	}
 	operations := []stepOperation{
 		func(ctx context.Context) error {
@@ -235,7 +236,7 @@ func runningStep(workflow *domain.Workflow) *domain.WorkflowStep {
 func runtimeFromEnvironment(environment *domain.Environment) domain.RuntimeInfo {
 	return domain.RuntimeInfo{
 		ContainerID: environment.ContainerID, ContainerPort: environment.ContainerPort,
-		HostPort: environment.HostPort, URL: environment.URL,
+		HostPort: environment.HostPort, URL: environment.URL, HealthCheckPath: environment.HealthCheckPath,
 	}
 }
 

@@ -39,6 +39,7 @@ export type Environment = {
   name: string
   image: string
   containerPort: number
+  healthCheckPath: string
   applicationVersion?: string
   hostPort: number
   containerId: string
@@ -54,6 +55,7 @@ export type CreateEnvironmentInput = {
   name: string
   image: string
   containerPort: number
+  healthCheckPath: string
   simulateFailure: boolean
   applicationVersion?: string
 }

@@ -190,7 +190,7 @@ func TestForeignKeysAreEnabled(t *testing.T) {
 	}
 }
 
-func TestOpenAddsApplicationVersionToExistingDatabase(t *testing.T) {
+func TestOpenAddsNewColumnsToExistingDatabase(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "legacy.db")
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
@@ -217,7 +217,8 @@ func TestOpenAddsApplicationVersionToExistingDatabase(t *testing.T) {
 	now := time.Now().UTC()
 	environment := &domain.Environment{
 		ID: "env-versioned", Name: "versioned", Image: "demo:latest", ContainerPort: 8080,
-		ApplicationVersion: "2.0.0", Status: domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
+		HealthCheckPath: "/ready", ApplicationVersion: "2.0.0",
+		Status: domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := store.Environments().Create(context.Background(), environment); err != nil {
 		t.Fatalf("create migrated environment: %v", err)
@@ -228,6 +229,9 @@ func TestOpenAddsApplicationVersionToExistingDatabase(t *testing.T) {
 	}
 	if loaded.ApplicationVersion != environment.ApplicationVersion {
 		t.Fatalf("application version was not migrated: %#v", loaded)
+	}
+	if loaded.HealthCheckPath != environment.HealthCheckPath {
+		t.Fatalf("health check path was not migrated: %#v", loaded)
 	}
 }
 

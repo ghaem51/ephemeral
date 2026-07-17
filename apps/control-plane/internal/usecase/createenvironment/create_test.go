@@ -57,6 +57,9 @@ func TestCreateRunsSuccessfulWorkflow(t *testing.T) {
 	if persisted.ApplicationVersion != validRequest().ApplicationVersion {
 		t.Fatalf("application version was not persisted: %#v", persisted)
 	}
+	if persisted.HealthCheckPath != defaultHealthCheckPath {
+		t.Fatalf("health check path was not persisted: %#v", persisted)
+	}
 	if workflow.Status != domain.WorkflowStatusSucceeded || workflow.StartedAt == nil || workflow.CompletedAt == nil {
 		t.Fatalf("workflow did not succeed: %#v", workflow)
 	}
@@ -108,6 +111,8 @@ func TestCreateValidationRules(t *testing.T) {
 		{Name: "-leading-hyphen", Image: "demo:latest", ContainerPort: 8080},
 		{Name: strings.Repeat("a", 64), Image: "demo:latest", ContainerPort: 8080},
 		{Name: "preview", Image: "", ContainerPort: 8080},
+		{Name: "preview", Image: "demo:latest", ContainerPort: 8080, HealthCheckPath: "health"},
+		{Name: "preview", Image: "demo:latest", ContainerPort: 8080, HealthCheckPath: "/health?verbose=true"},
 		{Name: "preview", Image: "demo:latest", ContainerPort: 0},
 		{Name: "preview", Image: "demo:latest", ContainerPort: 65536},
 	}
@@ -119,6 +124,24 @@ func TestCreateValidationRules(t *testing.T) {
 				t.Fatalf("expected ErrValidation, got %v", err)
 			}
 		})
+	}
+}
+
+func TestHealthCheckPathDefaultsAndValidation(t *testing.T) {
+	defaultSpec, err := validate(Request{Name: "preview", Image: "demo:latest", ContainerPort: 8080})
+	if err != nil {
+		t.Fatalf("validate default path: %v", err)
+	}
+	if defaultSpec.HealthCheckPath != defaultHealthCheckPath {
+		t.Fatalf("expected default path %q, got %q", defaultHealthCheckPath, defaultSpec.HealthCheckPath)
+	}
+
+	customSpec, err := validate(Request{Name: "preview", Image: "demo:latest", ContainerPort: 8080, HealthCheckPath: "/ready"})
+	if err != nil {
+		t.Fatalf("validate custom path: %v", err)
+	}
+	if customSpec.HealthCheckPath != "/ready" {
+		t.Fatalf("expected custom path to be preserved, got %q", customSpec.HealthCheckPath)
 	}
 }
 

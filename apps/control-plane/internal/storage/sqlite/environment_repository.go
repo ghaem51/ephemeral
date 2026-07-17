@@ -9,14 +9,14 @@ import (
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/domain"
 )
 
-const environmentColumns = `id, name, image, container_port, application_version, host_port, container_id, url, status, error_message, created_at, updated_at`
+const environmentColumns = `id, name, image, container_port, health_check_path, application_version, host_port, container_id, url, status, error_message, created_at, updated_at`
 
 func (r *EnvironmentRepository) Create(ctx context.Context, environment *domain.Environment) error {
 	_, err := r.db.ExecContext(ctx, `
         INSERT INTO environments (`+environmentColumns+`)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		environment.ID, environment.Name, environment.Image, environment.ContainerPort,
-		environment.ApplicationVersion,
+		environment.HealthCheckPath, environment.ApplicationVersion,
 		environment.HostPort, environment.ContainerID, environment.URL, environment.Status,
 		environment.ErrorMessage, formatTime(environment.CreatedAt), formatTime(environment.UpdatedAt),
 	)
@@ -29,10 +29,11 @@ func (r *EnvironmentRepository) Create(ctx context.Context, environment *domain.
 func (r *EnvironmentRepository) Update(ctx context.Context, environment *domain.Environment) error {
 	result, err := r.db.ExecContext(ctx, `
         UPDATE environments
-        SET name = ?, image = ?, container_port = ?, application_version = ?, host_port = ?, container_id = ?,
+		SET name = ?, image = ?, container_port = ?, health_check_path = ?, application_version = ?, host_port = ?, container_id = ?,
             url = ?, status = ?, error_message = ?, created_at = ?, updated_at = ?
         WHERE id = ?`,
-		environment.Name, environment.Image, environment.ContainerPort, environment.ApplicationVersion, environment.HostPort,
+		environment.Name, environment.Image, environment.ContainerPort, environment.HealthCheckPath,
+		environment.ApplicationVersion, environment.HostPort,
 		environment.ContainerID, environment.URL, environment.Status, environment.ErrorMessage,
 		formatTime(environment.CreatedAt), formatTime(environment.UpdatedAt), environment.ID,
 	)
@@ -81,7 +82,7 @@ func scanEnvironment(row scanner) (*domain.Environment, error) {
 	var createdAt, updatedAt string
 	if err := row.Scan(
 		&environment.ID, &environment.Name, &environment.Image, &environment.ContainerPort,
-		&environment.ApplicationVersion,
+		&environment.HealthCheckPath, &environment.ApplicationVersion,
 		&environment.HostPort, &environment.ContainerID, &environment.URL, &environment.Status,
 		&environment.ErrorMessage, &createdAt, &updatedAt,
 	); err != nil {

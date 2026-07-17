@@ -7,6 +7,7 @@ type Environment struct {
 	Name               string
 	Image              string
 	ContainerPort      int
+	HealthCheckPath    string
 	ApplicationVersion string
 	HostPort           int
 	ContainerID        string
@@ -22,14 +23,16 @@ type EnvironmentSpec struct {
 	Name               string
 	Image              string
 	ContainerPort      int
+	HealthCheckPath    string
 	ApplicationVersion string
 }
 
 type RuntimeInfo struct {
-	ContainerID   string
-	ContainerPort int
-	HostPort      int
-	URL           string
+	ContainerID     string
+	ContainerPort   int
+	HostPort        int
+	URL             string
+	HealthCheckPath string
 }
 
 type Workflow struct {

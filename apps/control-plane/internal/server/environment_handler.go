@@ -31,6 +31,7 @@ type createEnvironmentRequest struct {
 	Name               string `json:"name"`
 	Image              string `json:"image"`
 	ContainerPort      int    `json:"containerPort"`
+	HealthCheckPath    string `json:"healthCheckPath"`
 	SimulateFailure    bool   `json:"simulateFailure"`
 	ApplicationVersion string `json:"applicationVersion"`
 }
@@ -44,6 +45,7 @@ func (h *EnvironmentHandler) Create(c *gin.Context) {
 
 	result, err := h.service.Create(c.Request.Context(), createenvironment.Request{
 		Name: request.Name, Image: request.Image, ContainerPort: request.ContainerPort,
+		HealthCheckPath:    request.HealthCheckPath,
 		SimulateFailure:    request.SimulateFailure,
 		ApplicationVersion: request.ApplicationVersion,
 	})
@@ -100,6 +102,7 @@ type environmentResponse struct {
 	Name               string            `json:"name"`
 	Image              string            `json:"image"`
 	ContainerPort      int               `json:"containerPort"`
+	HealthCheckPath    string            `json:"healthCheckPath"`
 	ApplicationVersion string            `json:"applicationVersion,omitempty"`
 	HostPort           int               `json:"hostPort"`
 	ContainerID        string            `json:"containerId"`
@@ -137,7 +140,8 @@ func toEnvironmentResponse(result *environmentapi.Result) environmentResponse {
 	environment := result.Environment
 	response := environmentResponse{
 		ID: environment.ID, Name: environment.Name, Image: environment.Image,
-		ContainerPort: environment.ContainerPort, HostPort: environment.HostPort,
+		ContainerPort: environment.ContainerPort, HealthCheckPath: environment.HealthCheckPath,
+		HostPort:           environment.HostPort,
 		ApplicationVersion: environment.ApplicationVersion,
 		ContainerID:        environment.ContainerID, URL: environment.URL, Status: string(environment.Status),
 		ErrorMessage: environment.ErrorMessage, CreatedAt: environment.CreatedAt, UpdatedAt: environment.UpdatedAt,

@@ -16,6 +16,7 @@ export function CreateEnvironmentPage() {
   const [profile, setProfile] = useState<WorkloadProfile>('healthy')
   const [image, setImage] = useState('')
   const [containerPort, setContainerPort] = useState('8080')
+  const [healthCheckPath, setHealthCheckPath] = useState('/health')
   const [applicationVersion, setApplicationVersion] = useState('')
   const mutation = useMutation({
     mutationFn: createEnvironment,
@@ -34,10 +35,12 @@ export function CreateEnvironmentPage() {
     const parsedContainerPort = Number(containerPort)
     if (!isValidEnvironmentName(normalizedName) || !isValidApplicationVersion(normalizedVersion)) return
     if (!normalizedImage || !Number.isInteger(parsedContainerPort) || parsedContainerPort < 1 || parsedContainerPort > 65535) return
+    if (!healthCheckPath.startsWith('/') || healthCheckPath.includes('?') || healthCheckPath.includes('#')) return
     mutation.mutate({
       name: normalizedName,
       image: normalizedImage,
       containerPort: parsedContainerPort,
+      healthCheckPath,
       simulateFailure: profile === 'unhealthy',
       ...(normalizedVersion ? { applicationVersion: normalizedVersion } : {}),
     })
@@ -130,6 +133,19 @@ export function CreateEnvironmentPage() {
               <p className="field-help">Defined by the selected demo workload.</p>
             </div>
           ) : null}
+          <div>
+            <label className="field-label" htmlFor="health-check-path">Health check path</label>
+            <input
+              id="health-check-path"
+              value={healthCheckPath}
+              onChange={(event) => setHealthCheckPath(event.target.value)}
+              placeholder="/health"
+              pattern="/[^?#]*"
+              maxLength={255}
+              required
+            />
+            <p className="field-help">The HTTP endpoint used to determine readiness.</p>
+          </div>
           <div>
             <label className="field-label" htmlFor="application-version">Application version <span>Optional</span></label>
             <input

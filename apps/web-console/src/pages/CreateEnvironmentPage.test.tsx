@@ -52,14 +52,31 @@ describe('CreateEnvironmentPage validation', () => {
     await user.type(screen.getByLabelText('Container image'), 'nginx:latest')
     await user.clear(screen.getByLabelText('Container port'))
     await user.type(screen.getByLabelText('Container port'), '80')
+    await user.clear(screen.getByLabelText('Health check path'))
+    await user.type(screen.getByLabelText('Health check path'), '/ready')
     await user.click(screen.getByRole('button', { name: 'Create environment' }))
 
     expect(vi.mocked(createEnvironment).mock.calls[0]?.[0]).toEqual({
       name: 'custom-service',
       image: 'nginx:latest',
       containerPort: 80,
+      healthCheckPath: '/ready',
       simulateFailure: false,
     })
+  })
+
+  it('rejects a health check path without a leading slash', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.type(screen.getByLabelText('Environment name'), 'invalid-health-path')
+    const path = screen.getByLabelText('Health check path')
+    await user.clear(path)
+    await user.type(path, 'ready')
+    await user.click(screen.getByRole('button', { name: 'Create environment' }))
+
+    expect(path).toBeInvalid()
+    expect(createEnvironment).not.toHaveBeenCalled()
   })
 })
 

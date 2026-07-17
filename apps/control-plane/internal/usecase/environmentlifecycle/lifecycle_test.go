@@ -103,7 +103,7 @@ func TestRetryAfterHealthCheckFailure(t *testing.T) {
 	newRuntime := domain.RuntimeInfo{ContainerID: "new-container", ContainerPort: 8080}
 	readyRuntime := domain.RuntimeInfo{
 		ContainerID: "new-container", ContainerPort: 8080,
-		HostPort: 49153, URL: "http://localhost:49153",
+		HostPort: 49153, URL: "http://localhost:49153", HealthCheckPath: "/ready",
 	}
 	fake := &executortest.Fake{
 		DestroyFunc: func(_ context.Context, runtime domain.RuntimeInfo) error {
@@ -112,8 +112,8 @@ func TestRetryAfterHealthCheckFailure(t *testing.T) {
 		},
 		CreateFunc: func(_ context.Context, spec domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
 			calls = append(calls, "create")
-			if spec.ApplicationVersion != "1.2.3" {
-				t.Fatalf("retry lost application version: %#v", spec)
+			if spec.ApplicationVersion != "1.2.3" || spec.HealthCheckPath != "/ready" {
+				t.Fatalf("retry lost saved configuration: %#v", spec)
 			}
 			return newRuntime, nil
 		},
@@ -121,8 +121,11 @@ func TestRetryAfterHealthCheckFailure(t *testing.T) {
 			calls = append(calls, "start")
 			return readyRuntime, nil
 		},
-		CheckHealthFunc: func(context.Context, domain.RuntimeInfo) error {
+		CheckHealthFunc: func(_ context.Context, runtime domain.RuntimeInfo) error {
 			calls = append(calls, "health")
+			if runtime.HealthCheckPath != "/ready" {
+				t.Fatalf("health check lost custom path: %#v", runtime)
+			}
 			return nil
 		},
 	}
@@ -190,8 +193,8 @@ func createEnvironment(t *testing.T, store *sqlite.Store, status domain.Environm
 	now := time.Date(2026, time.July, 16, 11, 0, 0, 0, time.UTC)
 	environment := &domain.Environment{
 		ID: "env-1", Name: "preview", Image: "envpilot/demo-service:healthy", ContainerPort: 8080,
-		ApplicationVersion: "1.2.3",
-		ContainerID:        "container-1", HostPort: 49152, URL: "http://localhost:49152",
+		HealthCheckPath: "/ready", ApplicationVersion: "1.2.3",
+		ContainerID: "container-1", HostPort: 49152, URL: "http://localhost:49152",
 		Status: status, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := store.Environments().Create(context.Background(), environment); err != nil {

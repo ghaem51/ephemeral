@@ -98,7 +98,9 @@ func (e *Executor) Create(ctx context.Context, spec domain.EnvironmentSpec) (dom
 	if err != nil {
 		return domain.RuntimeInfo{}, fmt.Errorf("create Docker container for environment %q: %w", spec.ID, err)
 	}
-	return domain.RuntimeInfo{ContainerID: result.ID, ContainerPort: spec.ContainerPort}, nil
+	return domain.RuntimeInfo{
+		ContainerID: result.ID, ContainerPort: spec.ContainerPort, HealthCheckPath: spec.HealthCheckPath,
+	}, nil
 }
 
 func (e *Executor) Start(ctx context.Context, runtime domain.RuntimeInfo) (domain.RuntimeInfo, error) {
@@ -120,6 +122,7 @@ func (e *Executor) Start(ctx context.Context, runtime domain.RuntimeInfo) (domai
 	if err != nil {
 		return runtime, err
 	}
+	started.HealthCheckPath = runtime.HealthCheckPath
 	return started, nil
 }
 
@@ -127,7 +130,11 @@ func (e *Executor) CheckHealth(ctx context.Context, runtime domain.RuntimeInfo) 
 	if runtime.URL == "" {
 		return errors.New("check container health: runtime URL is required")
 	}
-	healthURL, err := healthCheckURL(runtime.URL, e.healthHost, e.healthPath)
+	healthPath := runtime.HealthCheckPath
+	if healthPath == "" {
+		healthPath = e.healthPath
+	}
+	healthURL, err := healthCheckURL(runtime.URL, e.healthHost, healthPath)
 	if err != nil {
 		return err
 	}

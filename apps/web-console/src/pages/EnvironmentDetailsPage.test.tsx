@@ -88,6 +88,7 @@ function environmentFixture(status: EnvironmentStatus, workflowStatus: WorkflowS
     name: 'feature-payment',
     image: 'envpilot/demo-service:healthy',
     containerPort: 8080,
+    healthCheckPath: '/health',
     hostPort: 49152,
     containerId: '1234567890abcdef',
     url: 'http://localhost:49152',
