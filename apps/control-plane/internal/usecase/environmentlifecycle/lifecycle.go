@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ type UseCase struct {
 	executor     executor.EnvironmentExecutor
 	now          func() time.Time
 	newID        func() (string, error)
+	logger       *slog.Logger
 
 	mu      sync.Mutex
 	started map[string]chan struct{}
@@ -38,10 +40,16 @@ func New(
 	environments repository.EnvironmentRepository,
 	workflows repository.WorkflowRepository,
 	runtimeExecutor executor.EnvironmentExecutor,
+	loggers ...*slog.Logger,
 ) *UseCase {
+	logger := slog.Default()
+	if len(loggers) > 0 && loggers[0] != nil {
+		logger = loggers[0]
+	}
 	return &UseCase{
 		environments: environments, workflows: workflows, executor: runtimeExecutor,
 		now: func() time.Time { return time.Now().UTC() }, newID: randomID,
+		logger:  logger,
 		started: make(map[string]chan struct{}),
 	}
 }

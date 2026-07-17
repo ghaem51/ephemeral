@@ -3,6 +3,7 @@ package environmentlifecycle
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/domain"
 )
@@ -130,9 +131,11 @@ func (uc *UseCase) run(
 	workflow *domain.Workflow,
 	operations []stepOperation,
 ) {
+	logger := uc.logger.With("environment_id", environment.ID, "workflow_id", workflow.ID, "operation", workflow.Operation)
+	logger.Info("lifecycle workflow started")
 	for index := range workflow.Steps {
 		step := &workflow.Steps[index]
-		if err := uc.runStep(ctx, step, operations[index]); err != nil {
+		if err := uc.runStep(ctx, step, operations[index], logger); err != nil {
 			uc.fail(ctx, environment, workflow, step, err)
 			return
 		}
@@ -147,9 +150,10 @@ func (uc *UseCase) run(
 		return
 	}
 	*workflow = succeeded
+	logger.Info("lifecycle workflow succeeded")
 }
 
-func (uc *UseCase) runStep(ctx context.Context, step *domain.WorkflowStep, operation stepOperation) error {
+func (uc *UseCase) runStep(ctx context.Context, step *domain.WorkflowStep, operation stepOperation, logger *slog.Logger) error {
 	if err := step.TransitionTo(domain.StepStatusRunning, uc.now()); err != nil {
 		return err
 	}
@@ -158,6 +162,7 @@ func (uc *UseCase) runStep(ctx context.Context, step *domain.WorkflowStep, opera
 	if err := uc.workflows.UpdateStep(ctx, step); err != nil {
 		return fmt.Errorf("persist running step %s: %w", step.Name, err)
 	}
+	logger.Info("workflow step started", "step", step.Name)
 	if err := operation(ctx); err != nil {
 		return err
 	}
@@ -170,11 +175,13 @@ func (uc *UseCase) runStep(ctx context.Context, step *domain.WorkflowStep, opera
 		return fmt.Errorf("persist succeeded step %s: %w", step.Name, err)
 	}
 	*step = succeeded
+	logger.Info("workflow step succeeded", "step", step.Name)
 	return nil
 }
 
 func (uc *UseCase) fail(ctx context.Context, environment *domain.Environment, workflow *domain.Workflow, step *domain.WorkflowStep, cause error) {
 	message := cause.Error()
+	uc.logger.Error("lifecycle workflow failed", "environment_id", environment.ID, "workflow_id", workflow.ID, "operation", workflow.Operation, "step", stepName(step), "error", cause)
 	if step != nil && step.Status == domain.StepStatusRunning {
 		if err := step.TransitionTo(domain.StepStatusFailed, uc.now()); err == nil {
 			step.Message = "step failed"
@@ -193,6 +200,13 @@ func (uc *UseCase) fail(ctx context.Context, environment *domain.Environment, wo
 			_ = uc.environments.Update(ctx, environment)
 		}
 	}
+}
+
+func stepName(step *domain.WorkflowStep) string {
+	if step == nil {
+		return ""
+	}
+	return step.Name
 }
 
 func runningStep(workflow *domain.Workflow) *domain.WorkflowStep {

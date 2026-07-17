@@ -36,7 +36,7 @@ build time and configure an appropriate trusted origin or reverse proxy.
 | --- | --- |
 | `make dev` | Build demo images and run the Compose stack |
 | `make build` | Build all application and demo images |
-| `make test` | Run Go tests and frontend type checking |
+| `make test` | Run Go tests, frontend type checking, and frontend tests |
 | `make lint` | Run Go formatting/vetting and frontend linting |
 | `make demo-images` | Build the healthy and unhealthy allowlisted images |
 | `make clean` | Stop containers and remove generated web build output |
@@ -73,6 +73,26 @@ EnvPilot additionally limits the assessment executor to two demo image names,
 loopback port publishing, no privileged mode, and no host mounts. Those controls
 reduce accidental scope but do not make Docker socket access safe for an
 untrusted production service.
+
+## Startup and recovery
+
+The API verifies SQLite initialization and Docker Engine connectivity before it
+starts accepting requests. `DOCKER_CONNECT_TIMEOUT` controls the Docker startup
+check and defaults to `5s`.
+
+After an unclean process exit, startup marks workflows left `RUNNING` as
+`FAILED`, records an interruption message on the running step and environment,
+and retains known container information. The environment is therefore visible
+as failed and can be retried (which cleans up the known runtime first) or
+destroyed. EnvPilot does not silently resume an operation whose side effects
+cannot be proven.
+
+## Future improvements
+
+For a larger production system, useful follow-ups would include OpenTelemetry
+traces, Prometheus metrics, and a durable distributed work queue. They are
+intentionally excluded from this assessment to keep the control plane small and
+the recovery behavior explicit.
 
 ## Repository layout
 

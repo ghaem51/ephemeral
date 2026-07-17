@@ -10,30 +10,32 @@ import (
 )
 
 const (
-	defaultPort              = "8080"
-	defaultDatabasePath      = "envpilot.db"
-	defaultReadHeaderTimeout = 5 * time.Second
-	defaultShutdownTimeout   = 10 * time.Second
-	defaultDockerImages      = "envpilot/demo-service:healthy,envpilot/demo-service:unhealthy"
-	defaultHealthPath        = "/health"
-	defaultHealthAttempts    = 15
-	defaultHealthInterval    = time.Second
-	defaultHealthTimeout     = 2 * time.Second
-	defaultDockerStopTimeout = 10 * time.Second
+	defaultPort                 = "8080"
+	defaultDatabasePath         = "envpilot.db"
+	defaultReadHeaderTimeout    = 5 * time.Second
+	defaultShutdownTimeout      = 10 * time.Second
+	defaultDockerImages         = "envpilot/demo-service:healthy,envpilot/demo-service:unhealthy"
+	defaultHealthPath           = "/health"
+	defaultHealthAttempts       = 15
+	defaultHealthInterval       = time.Second
+	defaultHealthTimeout        = 2 * time.Second
+	defaultDockerStopTimeout    = 10 * time.Second
+	defaultDockerConnectTimeout = 5 * time.Second
 )
 
 type Config struct {
-	Port              string
-	DatabasePath      string
-	LogLevel          slog.Level
-	ReadHeaderTimeout time.Duration
-	ShutdownTimeout   time.Duration
-	DockerImages      []string
-	HealthPath        string
-	HealthAttempts    int
-	HealthInterval    time.Duration
-	HealthTimeout     time.Duration
-	DockerStopTimeout time.Duration
+	Port                 string
+	DatabasePath         string
+	LogLevel             slog.Level
+	ReadHeaderTimeout    time.Duration
+	ShutdownTimeout      time.Duration
+	DockerImages         []string
+	HealthPath           string
+	HealthAttempts       int
+	HealthInterval       time.Duration
+	HealthTimeout        time.Duration
+	DockerStopTimeout    time.Duration
+	DockerConnectTimeout time.Duration
 }
 
 func Load() (Config, error) {
@@ -67,19 +69,24 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	dockerConnectTimeout, err := durationFromEnv("DOCKER_CONNECT_TIMEOUT", defaultDockerConnectTimeout)
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
-		Port:              envOrDefault("PORT", defaultPort),
-		DatabasePath:      envOrDefault("DATABASE_PATH", defaultDatabasePath),
-		LogLevel:          logLevel,
-		ReadHeaderTimeout: readHeaderTimeout,
-		ShutdownTimeout:   shutdownTimeout,
-		DockerImages:      commaSeparatedEnv("DOCKER_ALLOWED_IMAGES", defaultDockerImages),
-		HealthPath:        envOrDefault("DOCKER_HEALTH_PATH", defaultHealthPath),
-		HealthAttempts:    healthAttempts,
-		HealthInterval:    healthInterval,
-		HealthTimeout:     healthTimeout,
-		DockerStopTimeout: dockerStopTimeout,
+		Port:                 envOrDefault("PORT", defaultPort),
+		DatabasePath:         envOrDefault("DATABASE_PATH", defaultDatabasePath),
+		LogLevel:             logLevel,
+		ReadHeaderTimeout:    readHeaderTimeout,
+		ShutdownTimeout:      shutdownTimeout,
+		DockerImages:         commaSeparatedEnv("DOCKER_ALLOWED_IMAGES", defaultDockerImages),
+		HealthPath:           envOrDefault("DOCKER_HEALTH_PATH", defaultHealthPath),
+		HealthAttempts:       healthAttempts,
+		HealthInterval:       healthInterval,
+		HealthTimeout:        healthTimeout,
+		DockerStopTimeout:    dockerStopTimeout,
+		DockerConnectTimeout: dockerConnectTimeout,
 	}, nil
 }
 

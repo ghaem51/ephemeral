@@ -3,6 +3,7 @@ package createenvironment
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/domain"
 )
@@ -42,6 +43,8 @@ func (uc *UseCase) execute(
 	spec domain.EnvironmentSpec,
 	currentStep **domain.WorkflowStep,
 ) {
+	logger := uc.logger.With("environment_id", environment.ID, "workflow_id", workflow.ID)
+	logger.Info("create workflow started")
 	if err := workflow.TransitionTo(domain.WorkflowStatusRunning, uc.now()); err != nil {
 		uc.persistFailure(ctx, environment, workflow, nil, err)
 		return
@@ -98,7 +101,7 @@ func (uc *UseCase) execute(
 	for index := range workflow.Steps {
 		step := &workflow.Steps[index]
 		*currentStep = step
-		if err := uc.runStep(ctx, step, operations[index]); err != nil {
+		if err := uc.runStep(ctx, step, operations[index], logger); err != nil {
 			uc.persistFailure(ctx, environment, workflow, step, err)
 			return
 		}
@@ -115,9 +118,10 @@ func (uc *UseCase) execute(
 		return
 	}
 	*workflow = succeeded
+	logger.Info("create workflow succeeded")
 }
 
-func (uc *UseCase) runStep(ctx context.Context, step *domain.WorkflowStep, operation stepOperation) error {
+func (uc *UseCase) runStep(ctx context.Context, step *domain.WorkflowStep, operation stepOperation, logger *slog.Logger) error {
 	if err := step.TransitionTo(domain.StepStatusRunning, uc.now()); err != nil {
 		return err
 	}
@@ -126,6 +130,7 @@ func (uc *UseCase) runStep(ctx context.Context, step *domain.WorkflowStep, opera
 	if err := uc.workflows.UpdateStep(ctx, step); err != nil {
 		return fmt.Errorf("persist running step %s: %w", step.Name, err)
 	}
+	logger.Info("workflow step started", "step", step.Name)
 
 	if err := operation(ctx); err != nil {
 		return err
@@ -139,6 +144,7 @@ func (uc *UseCase) runStep(ctx context.Context, step *domain.WorkflowStep, opera
 		return fmt.Errorf("persist succeeded step %s: %w", step.Name, err)
 	}
 	*step = succeeded
+	logger.Info("workflow step succeeded", "step", step.Name)
 	return nil
 }
 
@@ -150,6 +156,7 @@ func (uc *UseCase) persistFailure(
 	cause error,
 ) {
 	message := cause.Error()
+	uc.logger.Error("create workflow failed", "environment_id", environment.ID, "workflow_id", workflow.ID, "step", stepName(step), "error", cause)
 	if step != nil && step.Status == domain.StepStatusRunning {
 		if err := step.TransitionTo(domain.StepStatusFailed, uc.now()); err == nil {
 			step.Message = "step failed"
@@ -168,6 +175,13 @@ func (uc *UseCase) persistFailure(
 			_ = uc.environments.Update(ctx, environment)
 		}
 	}
+}
+
+func stepName(step *domain.WorkflowStep) string {
+	if step == nil {
+		return ""
+	}
+	return step.Name
 }
 
 func applyRuntime(environment *domain.Environment, runtime domain.RuntimeInfo) {

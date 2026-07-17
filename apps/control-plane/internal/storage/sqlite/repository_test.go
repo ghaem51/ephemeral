@@ -189,6 +189,65 @@ func TestForeignKeysAreEnabled(t *testing.T) {
 	}
 }
 
+func TestRecoverStaleWorkflowsMarksWorkflowStepAndEnvironmentFailed(t *testing.T) {
+	store := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
+	environment := &domain.Environment{
+		ID: "env-stale", Name: "stale-preview", Image: "demo:latest", ContainerPort: 8080,
+		ContainerID: "container-still-present", Status: domain.EnvironmentStatusProvisioning,
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Minute),
+	}
+	if err := store.Environments().Create(ctx, environment); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+	startedAt := now.Add(-time.Minute)
+	workflow := &domain.Workflow{
+		ID: "workflow-stale", EnvironmentID: environment.ID, Operation: domain.OperationCreate,
+		Status: domain.WorkflowStatusRunning, StartedAt: &startedAt,
+		Steps: []domain.WorkflowStep{
+			{ID: "step-running", Name: "CHECK_HEALTH", Order: 1, Status: domain.StepStatusRunning, StartedAt: &startedAt},
+			{ID: "step-pending", Name: "MARK_READY", Order: 2, Status: domain.StepStatusPending},
+		},
+	}
+	if err := store.Workflows().CreateWithSteps(ctx, workflow); err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	recovered, err := store.RecoverStaleWorkflows(ctx, now)
+	if err != nil {
+		t.Fatalf("recover stale workflows: %v", err)
+	}
+	if len(recovered) != 1 || recovered[0].WorkflowID != workflow.ID || recovered[0].EnvironmentID != environment.ID {
+		t.Fatalf("unexpected recovery result: %#v", recovered)
+	}
+
+	gotWorkflow, err := store.Workflows().GetWithSteps(ctx, workflow.ID)
+	if err != nil {
+		t.Fatalf("get recovered workflow: %v", err)
+	}
+	if gotWorkflow.Status != domain.WorkflowStatusFailed || gotWorkflow.CompletedAt == nil || !gotWorkflow.CompletedAt.Equal(now) {
+		t.Fatalf("workflow was not failed: %#v", gotWorkflow)
+	}
+	if gotWorkflow.Steps[0].Status != domain.StepStatusFailed || gotWorkflow.Steps[0].ErrorMessage != staleWorkflowMessage || gotWorkflow.Steps[0].CompletedAt == nil {
+		t.Fatalf("running step was not failed with recovery context: %#v", gotWorkflow.Steps[0])
+	}
+	if gotWorkflow.Steps[1].Status != domain.StepStatusPending {
+		t.Fatalf("pending audit history should be preserved: %#v", gotWorkflow.Steps[1])
+	}
+
+	gotEnvironment, err := store.Environments().GetByID(ctx, environment.ID)
+	if err != nil {
+		t.Fatalf("get recovered environment: %v", err)
+	}
+	if gotEnvironment.Status != domain.EnvironmentStatusFailed || gotEnvironment.ErrorMessage != staleWorkflowMessage {
+		t.Fatalf("environment was not left recoverable: %#v", gotEnvironment)
+	}
+	if gotEnvironment.ContainerID != environment.ContainerID {
+		t.Fatalf("known runtime must be retained for retry or destroy: %#v", gotEnvironment)
+	}
+}
+
 func openTestStore(t *testing.T) *Store {
 	t.Helper()
 	store, err := Open(context.Background(), filepath.Join(t.TempDir(), "envpilot.db"))

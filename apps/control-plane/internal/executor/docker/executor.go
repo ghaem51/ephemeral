@@ -72,6 +72,13 @@ func (e *Executor) Close() error {
 	return e.client.Close()
 }
 
+func (e *Executor) Ping(ctx context.Context) error {
+	if _, err := e.client.Ping(ctx, client.PingOptions{}); err != nil {
+		return fmt.Errorf("connect to Docker Engine: %w", err)
+	}
+	return nil
+}
+
 func (e *Executor) Create(ctx context.Context, spec domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
 	if err := validateSpec(spec, e.allowedImages); err != nil {
 		return domain.RuntimeInfo{}, err

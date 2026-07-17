@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/config"
 	dockerexecutor "github.com/ghaem51/ephemeral/apps/control-plane/internal/executor/docker"
@@ -32,7 +33,7 @@ func main() {
 
 	store, err := sqlite.Open(context.Background(), cfg.DatabasePath)
 	if err != nil {
-		logger.Error("open database", "error", err)
+		logger.Error("database startup failed", "database_path", cfg.DatabasePath, "error", err)
 		os.Exit(1)
 	}
 	defer func() {
@@ -40,6 +41,14 @@ func main() {
 			logger.Error("close database", "error", err)
 		}
 	}()
+	recovered, err := store.RecoverStaleWorkflows(context.Background(), time.Now().UTC())
+	if err != nil {
+		logger.Error("recover stale workflows", "error", err)
+		os.Exit(1)
+	}
+	for _, workflow := range recovered {
+		logger.Warn("recovered stale workflow", "environment_id", workflow.EnvironmentID, "workflow_id", workflow.WorkflowID)
+	}
 	runtimeExecutor, err := dockerexecutor.NewFromEnv(dockerexecutor.Options{
 		AllowedImages: cfg.DockerImages, HealthPath: cfg.HealthPath,
 		HealthAttempts: cfg.HealthAttempts, HealthInterval: cfg.HealthInterval,
@@ -49,20 +58,27 @@ func main() {
 		logger.Error("configure Docker executor", "error", err)
 		os.Exit(1)
 	}
+	dockerCtx, cancelDocker := context.WithTimeout(context.Background(), cfg.DockerConnectTimeout)
+	if err := runtimeExecutor.Ping(dockerCtx); err != nil {
+		cancelDocker()
+		logger.Error("Docker connectivity check failed", "error", err)
+		os.Exit(1)
+	}
+	cancelDocker()
 	defer func() {
 		if err := runtimeExecutor.Close(); err != nil {
 			logger.Error("close Docker client", "error", err)
 		}
 	}()
 
-	createEnvironment := createenvironment.New(store.Environments(), store.Workflows(), runtimeExecutor)
-	lifecycle := environmentlifecycle.New(store.Environments(), store.Workflows(), runtimeExecutor)
+	createEnvironment := createenvironment.New(store.Environments(), store.Workflows(), runtimeExecutor, logger)
+	lifecycle := environmentlifecycle.New(store.Environments(), store.Workflows(), runtimeExecutor, logger)
 	environmentService := environmentapi.New(createEnvironment, lifecycle, store.Environments(), store.Workflows())
 	environmentHandler := server.NewEnvironmentHandler(environmentService)
 
 	httpServer := &http.Server{
 		Addr:              cfg.Address(),
-		Handler:           server.NewRouter(environmentHandler),
+		Handler:           server.NewRouter(environmentHandler, logger),
 		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
 	}
 
