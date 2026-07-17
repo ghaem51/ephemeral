@@ -13,6 +13,7 @@ export function CreateEnvironmentPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
+  const [nameError, setNameError] = useState('')
   const [profile, setProfile] = useState<WorkloadProfile>('healthy')
   const [image, setImage] = useState('')
   const [containerPort, setContainerPort] = useState('8080')
@@ -35,7 +36,12 @@ export function CreateEnvironmentPage() {
     const normalizedImage = profile === 'custom' ? image.trim() : healthyDemoImage
     const parsedContainerPort = Number(containerPort)
     const parsedEnvironmentVariables = parseEnvironmentVariables(environmentVariables)
-    if (!isValidEnvironmentName(normalizedName) || !isValidApplicationVersion(normalizedVersion)) return
+    const nextNameError = getEnvironmentNameError(normalizedName)
+    if (nextNameError) {
+      setNameError(nextNameError)
+      return
+    }
+    if (!isValidApplicationVersion(normalizedVersion)) return
     if (!normalizedImage || !Number.isInteger(parsedContainerPort) || parsedContainerPort < 1 || parsedContainerPort > 65535) return
     if (!healthCheckPath.startsWith('/') || healthCheckPath.includes('?') || healthCheckPath.includes('#')) return
     if (parsedEnvironmentVariables === null) return
@@ -69,14 +75,24 @@ export function CreateEnvironmentPage() {
             id="environment-name"
             name="name"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value)
+              if (nameError) setNameError('')
+            }}
+            onInvalid={(event) => {
+              event.preventDefault()
+              setNameError(getEnvironmentNameError(name.trim()))
+            }}
+            aria-invalid={nameError ? 'true' : undefined}
+            aria-describedby={nameError ? 'environment-name-error environment-name-help' : 'environment-name-help'}
             placeholder="feature-payment"
             pattern="[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
             maxLength={63}
             autoComplete="off"
             required
           />
-          <p className="field-help">Lowercase letters, numbers, and hyphens. Maximum 63 characters.</p>
+          {nameError ? <p id="environment-name-error" className="field-validation-error" role="alert">{nameError}</p> : null}
+          <p id="environment-name-help" className="field-help">Lowercase letters, numbers, and hyphens. Maximum 63 characters.</p>
         </div>
 
         <div className="form-section">
@@ -187,6 +203,14 @@ export function CreateEnvironmentPage() {
       </form>
     </section>
   )
+}
+
+function getEnvironmentNameError(value: string) {
+  if (!value) return 'Enter an environment name.'
+  if (!isValidEnvironmentName(value)) {
+    return 'Use only lowercase letters, numbers, and hyphens. Start and end with a letter or number.'
+  }
+  return ''
 }
 
 function parseEnvironmentVariables(input: string): string[] | null {

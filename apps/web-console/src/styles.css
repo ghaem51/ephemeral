@@ -384,6 +384,22 @@ td code {
   margin-left: 0.35rem;
 }
 
+.field-validation-error {
+  color: #a42a20;
+  font-size: 0.84rem;
+  font-weight: 700;
+  margin: 0.5rem 0 0;
+}
+
+.operator-form input[aria-invalid="true"] {
+  border-color: #c54137;
+}
+
+.operator-form input[aria-invalid="true"]:focus {
+  border-color: #a42a20;
+  box-shadow: 0 0 0 3px rgb(164 42 32 / 14%);
+}
+
 input[type="text"],
 input:not([type]) {
   appearance: none;

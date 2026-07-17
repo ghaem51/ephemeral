@@ -14,10 +14,10 @@ describe('CreateEnvironmentPage validation', () => {
   beforeEach(() => vi.mocked(createEnvironment).mockReset())
 
   it.each([
-    ['', 'a value is required'],
-    ['Feature_Payment', 'lowercase letters, numbers, and hyphens'],
-    ['-leading-hyphen', 'lowercase letters, numbers, and hyphens'],
-  ])('does not submit invalid name %j', async (name) => {
+    ['', 'Enter an environment name.'],
+    ['Feature_Payment', 'Use only lowercase letters, numbers, and hyphens. Start and end with a letter or number.'],
+    ['-leading-hyphen', 'Use only lowercase letters, numbers, and hyphens. Start and end with a letter or number.'],
+  ])('shows an error and does not submit invalid name %j', async (name, expectedError) => {
     const user = userEvent.setup()
     renderPage()
     const input = screen.getByLabelText('Environment name')
@@ -25,9 +25,26 @@ describe('CreateEnvironmentPage validation', () => {
     if (name) await user.type(input, name)
     await user.click(screen.getByRole('button', { name: 'Create environment' }))
 
-    if (!name) expect(input).toBeInvalid()
-    else expect(input).toHaveAttribute('pattern', '[a-z0-9](?:[a-z0-9-]*[a-z0-9])?')
+    expect(input).toBeInvalid()
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('alert')).toHaveTextContent(expectedError)
     expect(createEnvironment).not.toHaveBeenCalled()
+  })
+
+  it('clears the environment name error when the user edits the field', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const input = screen.getByLabelText('Environment name')
+
+    await user.type(input, 'Invalid_Name')
+    await user.click(screen.getByRole('button', { name: 'Create environment' }))
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+
+    await user.clear(input)
+    await user.type(input, 'valid-name')
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(input).not.toHaveAttribute('aria-invalid')
   })
 
   it('requires the optional version to use the supported format', async () => {
