@@ -1,0 +1,80 @@
+name: envpilot
+
+services:
+  control-plane:
+    container_name: envpilot-control-plane
+    build:
+      context: ./apps/control-plane
+    image: envpilot/control-plane:local
+    environment:
+      PORT: "8080"
+      DATABASE_PATH: /var/lib/envpilot/envpilot.db
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_ALLOWED_IMAGES: envpilot/demo-service:healthy,envpilot/demo-service:unhealthy
+      LOG_LEVEL: info
+    ports:
+      - "8080:8080"
+    volumes:
+      - envpilot-data:/var/lib/envpilot
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - envpilot-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--output-document=-", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  web-console:
+    container_name: envpilot-web-console
+    build:
+      context: ./apps/web-console
+      args:
+        VITE_API_BASE_URL: ""
+    image: envpilot/web-console:local
+    environment:
+      PORT: "3000"
+      API_PROXY_URL: http://control-plane:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    networks:
+      - envpilot-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--output-document=-", "http://localhost:3000/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  demo-healthy:
+    profiles: ["images"]
+    build:
+      context: ./demo/demo-service
+      args:
+        HEALTH_MODE: healthy
+        APP_VERSION: local
+    image: envpilot/demo-service:healthy
+
+  demo-unhealthy:
+    profiles: ["images"]
+    build:
+      context: ./demo/demo-service
+      args:
+        HEALTH_MODE: unhealthy
+        APP_VERSION: local
+    image: envpilot/demo-service:unhealthy
+
+volumes:
+  envpilot-data:
+    name: envpilot-data
+
+networks:
+  envpilot-network:
+    name: envpilot-network
+    driver: bridge
