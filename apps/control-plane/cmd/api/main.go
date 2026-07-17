@@ -10,8 +10,11 @@ import (
 	"syscall"
 
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/config"
+	"github.com/ghaem51/ephemeral/apps/control-plane/internal/domain"
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/server"
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/storage/sqlite"
+	"github.com/ghaem51/ephemeral/apps/control-plane/internal/usecase/createenvironment"
+	"github.com/ghaem51/ephemeral/apps/control-plane/internal/usecase/environmentapi"
 )
 
 func main() {
@@ -37,9 +40,13 @@ func main() {
 		}
 	}()
 
+	createEnvironment := createenvironment.New(store.Environments(), store.Workflows(), unavailableExecutor{})
+	environmentService := environmentapi.New(createEnvironment, store.Environments(), store.Workflows())
+	environmentHandler := server.NewEnvironmentHandler(environmentService)
+
 	httpServer := &http.Server{
 		Addr:              cfg.Address(),
-		Handler:           server.NewRouter(),
+		Handler:           server.NewRouter(environmentHandler),
 		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
 	}
 
@@ -72,4 +79,22 @@ func main() {
 	}
 
 	logger.Info("HTTP server stopped")
+}
+
+type unavailableExecutor struct{}
+
+func (unavailableExecutor) Create(context.Context, domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
+	return domain.RuntimeInfo{}, errors.New("container executor is not configured")
+}
+
+func (unavailableExecutor) Start(context.Context, domain.RuntimeInfo) error {
+	return errors.New("container executor is not configured")
+}
+
+func (unavailableExecutor) CheckHealth(context.Context, domain.RuntimeInfo) error {
+	return errors.New("container executor is not configured")
+}
+
+func (unavailableExecutor) Destroy(context.Context, domain.RuntimeInfo) error {
+	return errors.New("container executor is not configured")
 }

@@ -98,6 +98,27 @@ func TestCreateRejectsInvalidRequest(t *testing.T) {
 	}
 }
 
+func TestCreateValidationRules(t *testing.T) {
+	tests := []Request{
+		{Name: "UPPERCASE", Image: "demo:latest", ContainerPort: 8080},
+		{Name: "invalid_name", Image: "demo:latest", ContainerPort: 8080},
+		{Name: "-leading-hyphen", Image: "demo:latest", ContainerPort: 8080},
+		{Name: strings.Repeat("a", 64), Image: "demo:latest", ContainerPort: 8080},
+		{Name: "preview", Image: "", ContainerPort: 8080},
+		{Name: "preview", Image: "demo:latest", ContainerPort: 0},
+		{Name: "preview", Image: "demo:latest", ContainerPort: 65536},
+	}
+
+	for _, request := range tests {
+		t.Run(fmt.Sprintf("%s-%d", request.Name, request.ContainerPort), func(t *testing.T) {
+			uc, _ := newTestUseCase(t, &executortest.Fake{})
+			if _, err := uc.Create(context.Background(), request); !errors.Is(err, domain.ErrValidation) {
+				t.Fatalf("expected ErrValidation, got %v", err)
+			}
+		})
+	}
+}
+
 func TestCreateRejectsDuplicateActiveName(t *testing.T) {
 	block := make(chan struct{})
 	fake := &executortest.Fake{CreateFunc: func(context.Context, domain.EnvironmentSpec) (domain.RuntimeInfo, error) {

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/executor"
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/repository"
 )
+
+var environmentNamePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 
 const (
 	StepValidateRequest = "VALIDATE_REQUEST"
@@ -153,6 +156,12 @@ func validate(request Request) (domain.EnvironmentSpec, error) {
 	}
 	if spec.Name == "" {
 		return domain.EnvironmentSpec{}, fmt.Errorf("name is required: %w", domain.ErrValidation)
+	}
+	if len(spec.Name) > 63 {
+		return domain.EnvironmentSpec{}, fmt.Errorf("name must be 63 characters or fewer: %w", domain.ErrValidation)
+	}
+	if !environmentNamePattern.MatchString(spec.Name) {
+		return domain.EnvironmentSpec{}, fmt.Errorf("name must contain only lowercase letters, numbers, and hyphens, and start and end with a letter or number: %w", domain.ErrValidation)
 	}
 	if spec.Image == "" {
 		return domain.EnvironmentSpec{}, fmt.Errorf("image is required: %w", domain.ErrValidation)
