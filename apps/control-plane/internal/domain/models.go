@@ -17,15 +17,17 @@ type Environment struct {
 }
 
 type EnvironmentSpec struct {
+	ID            string
 	Name          string
 	Image         string
 	ContainerPort int
 }
 
 type RuntimeInfo struct {
-	ContainerID string
-	HostPort    int
-	URL         string
+	ContainerID   string
+	ContainerPort int
+	HostPort      int
+	URL           string
 }
 
 type Workflow struct {

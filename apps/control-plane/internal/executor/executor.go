@@ -11,7 +11,7 @@ import (
 // behind this boundary.
 type EnvironmentExecutor interface {
 	Create(context.Context, domain.EnvironmentSpec) (domain.RuntimeInfo, error)
-	Start(context.Context, domain.RuntimeInfo) error
+	Start(context.Context, domain.RuntimeInfo) (domain.RuntimeInfo, error)
 	CheckHealth(context.Context, domain.RuntimeInfo) error
 	Destroy(context.Context, domain.RuntimeInfo) error
 }

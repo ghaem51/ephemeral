@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -13,6 +14,12 @@ const (
 	defaultDatabasePath      = "envpilot.db"
 	defaultReadHeaderTimeout = 5 * time.Second
 	defaultShutdownTimeout   = 10 * time.Second
+	defaultDockerImages      = "envpilot/demo-service:healthy,envpilot/demo-service:unhealthy"
+	defaultHealthPath        = "/health"
+	defaultHealthAttempts    = 15
+	defaultHealthInterval    = time.Second
+	defaultHealthTimeout     = 2 * time.Second
+	defaultDockerStopTimeout = 10 * time.Second
 )
 
 type Config struct {
@@ -21,6 +28,12 @@ type Config struct {
 	LogLevel          slog.Level
 	ReadHeaderTimeout time.Duration
 	ShutdownTimeout   time.Duration
+	DockerImages      []string
+	HealthPath        string
+	HealthAttempts    int
+	HealthInterval    time.Duration
+	HealthTimeout     time.Duration
+	DockerStopTimeout time.Duration
 }
 
 func Load() (Config, error) {
@@ -38,6 +51,22 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	healthAttempts, err := positiveIntFromEnv("DOCKER_HEALTH_ATTEMPTS", defaultHealthAttempts)
+	if err != nil {
+		return Config{}, err
+	}
+	healthInterval, err := durationFromEnv("DOCKER_HEALTH_INTERVAL", defaultHealthInterval)
+	if err != nil {
+		return Config{}, err
+	}
+	healthTimeout, err := durationFromEnv("DOCKER_HEALTH_TIMEOUT", defaultHealthTimeout)
+	if err != nil {
+		return Config{}, err
+	}
+	dockerStopTimeout, err := durationFromEnv("DOCKER_STOP_TIMEOUT", defaultDockerStopTimeout)
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		Port:              envOrDefault("PORT", defaultPort),
@@ -45,7 +74,36 @@ func Load() (Config, error) {
 		LogLevel:          logLevel,
 		ReadHeaderTimeout: readHeaderTimeout,
 		ShutdownTimeout:   shutdownTimeout,
+		DockerImages:      commaSeparatedEnv("DOCKER_ALLOWED_IMAGES", defaultDockerImages),
+		HealthPath:        envOrDefault("DOCKER_HEALTH_PATH", defaultHealthPath),
+		HealthAttempts:    healthAttempts,
+		HealthInterval:    healthInterval,
+		HealthTimeout:     healthTimeout,
+		DockerStopTimeout: dockerStopTimeout,
 	}, nil
+}
+
+func commaSeparatedEnv(key, fallback string) []string {
+	values := strings.Split(envOrDefault(key, fallback), ",")
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+func positiveIntFromEnv(key string, fallback int) (int, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 {
+		return 0, fmt.Errorf("%s must be a positive integer", key)
+	}
+	return parsed, nil
 }
 
 func (c Config) Address() string {

@@ -10,7 +10,7 @@ import (
 	"syscall"
 
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/config"
-	"github.com/ghaem51/ephemeral/apps/control-plane/internal/domain"
+	dockerexecutor "github.com/ghaem51/ephemeral/apps/control-plane/internal/executor/docker"
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/server"
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/storage/sqlite"
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/usecase/createenvironment"
@@ -39,8 +39,22 @@ func main() {
 			logger.Error("close database", "error", err)
 		}
 	}()
+	runtimeExecutor, err := dockerexecutor.NewFromEnv(dockerexecutor.Options{
+		AllowedImages: cfg.DockerImages, HealthPath: cfg.HealthPath,
+		HealthAttempts: cfg.HealthAttempts, HealthInterval: cfg.HealthInterval,
+		HealthTimeout: cfg.HealthTimeout, StopTimeout: cfg.DockerStopTimeout,
+	})
+	if err != nil {
+		logger.Error("configure Docker executor", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := runtimeExecutor.Close(); err != nil {
+			logger.Error("close Docker client", "error", err)
+		}
+	}()
 
-	createEnvironment := createenvironment.New(store.Environments(), store.Workflows(), unavailableExecutor{})
+	createEnvironment := createenvironment.New(store.Environments(), store.Workflows(), runtimeExecutor)
 	environmentService := environmentapi.New(createEnvironment, store.Environments(), store.Workflows())
 	environmentHandler := server.NewEnvironmentHandler(environmentService)
 
@@ -79,22 +93,4 @@ func main() {
 	}
 
 	logger.Info("HTTP server stopped")
-}
-
-type unavailableExecutor struct{}
-
-func (unavailableExecutor) Create(context.Context, domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
-	return domain.RuntimeInfo{}, errors.New("container executor is not configured")
-}
-
-func (unavailableExecutor) Start(context.Context, domain.RuntimeInfo) error {
-	return errors.New("container executor is not configured")
-}
-
-func (unavailableExecutor) CheckHealth(context.Context, domain.RuntimeInfo) error {
-	return errors.New("container executor is not configured")
-}
-
-func (unavailableExecutor) Destroy(context.Context, domain.RuntimeInfo) error {
-	return errors.New("container executor is not configured")
 }

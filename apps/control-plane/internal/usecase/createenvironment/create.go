@@ -80,6 +80,7 @@ func (uc *UseCase) Create(ctx context.Context, request Request) (*domain.Environ
 	if err != nil {
 		return nil, fmt.Errorf("generate workflow ID: %w", err)
 	}
+	spec.ID = environmentID
 
 	now := uc.now()
 	environment := &domain.Environment{

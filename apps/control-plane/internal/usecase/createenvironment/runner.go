@@ -71,7 +71,15 @@ func (uc *UseCase) execute(
 			}
 			return err
 		},
-		func(ctx context.Context) error { return uc.executor.Start(ctx, runtime) },
+		func(ctx context.Context) error {
+			started, err := uc.executor.Start(ctx, runtime)
+			runtime = started
+			applyRuntime(environment, runtime)
+			if updateErr := uc.environments.Update(ctx, environment); updateErr != nil {
+				return fmt.Errorf("persist started runtime: %w", updateErr)
+			}
+			return err
+		},
 		func(ctx context.Context) error { return uc.executor.CheckHealth(ctx, runtime) },
 		func(ctx context.Context) error {
 			ready := *environment

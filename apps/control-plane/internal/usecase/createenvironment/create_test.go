@@ -24,9 +24,9 @@ func TestCreateRunsSuccessfulWorkflow(t *testing.T) {
 			calls = append(calls, "create")
 			return runtime, nil
 		},
-		StartFunc: func(context.Context, domain.RuntimeInfo) error {
+		StartFunc: func(_ context.Context, runtime domain.RuntimeInfo) (domain.RuntimeInfo, error) {
 			calls = append(calls, "start")
-			return nil
+			return runtime, nil
 		},
 		CheckHealthFunc: func(context.Context, domain.RuntimeInfo) error {
 			calls = append(calls, "health")
@@ -162,7 +162,9 @@ func TestCreateWorkflowFailures(t *testing.T) {
 				fake.CreateFunc = func(context.Context, domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
 					return testRuntime(), nil
 				}
-				fake.StartFunc = func(context.Context, domain.RuntimeInfo) error { return failure }
+				fake.StartFunc = func(_ context.Context, runtime domain.RuntimeInfo) (domain.RuntimeInfo, error) {
+					return runtime, failure
+				}
 			},
 		},
 		{

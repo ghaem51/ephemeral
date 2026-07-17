@@ -25,10 +25,10 @@ func TestWorkflowCanUseEnvironmentExecutor(t *testing.T) {
 			}
 			return runtime, nil
 		},
-		StartFunc: func(_ context.Context, got domain.RuntimeInfo) error {
+		StartFunc: func(_ context.Context, got domain.RuntimeInfo) (domain.RuntimeInfo, error) {
 			calls = append(calls, "start")
 			assertRuntime(t, got, runtime)
-			return nil
+			return got, nil
 		},
 		CheckHealthFunc: func(_ context.Context, got domain.RuntimeInfo) error {
 			calls = append(calls, "check health")
@@ -59,8 +59,8 @@ func TestWorkflowStopsWhenExecutorOperationFails(t *testing.T) {
 		CreateFunc: func(context.Context, domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
 			return domain.RuntimeInfo{ContainerID: "container-1"}, nil
 		},
-		StartFunc: func(context.Context, domain.RuntimeInfo) error {
-			return startError
+		StartFunc: func(_ context.Context, runtime domain.RuntimeInfo) (domain.RuntimeInfo, error) {
+			return runtime, startError
 		},
 		CheckHealthFunc: func(context.Context, domain.RuntimeInfo) error {
 			healthCalled = true
@@ -83,7 +83,8 @@ func runLifecycle(ctx context.Context, runtimeExecutor executor.EnvironmentExecu
 	if err != nil {
 		return err
 	}
-	if err := runtimeExecutor.Start(ctx, runtime); err != nil {
+	runtime, err = runtimeExecutor.Start(ctx, runtime)
+	if err != nil {
 		return err
 	}
 	if err := runtimeExecutor.CheckHealth(ctx, runtime); err != nil {
@@ -97,7 +98,8 @@ func provision(ctx context.Context, runtimeExecutor executor.EnvironmentExecutor
 	if err != nil {
 		return err
 	}
-	if err := runtimeExecutor.Start(ctx, runtime); err != nil {
+	runtime, err = runtimeExecutor.Start(ctx, runtime)
+	if err != nil {
 		return err
 	}
 	return runtimeExecutor.CheckHealth(ctx, runtime)
