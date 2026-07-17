@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ var _ executor.EnvironmentExecutor = (*Executor)(nil)
 type Options struct {
 	AllowedImages  []string
 	HealthPath     string
+	HealthHost     string
 	HealthAttempts int
 	HealthInterval time.Duration
 	HealthTimeout  time.Duration
@@ -39,6 +41,7 @@ type Executor struct {
 	allowedImages  map[string]struct{}
 	healthClient   *http.Client
 	healthPath     string
+	healthHost     string
 	healthAttempts int
 	healthInterval time.Duration
 	stopTimeout    time.Duration
@@ -63,7 +66,7 @@ func NewFromEnv(options Options) (*Executor, error) {
 	return &Executor{
 		client: dockerClient, allowedImages: allowedImages,
 		healthClient: &http.Client{Timeout: options.HealthTimeout},
-		healthPath:   options.HealthPath, healthAttempts: options.HealthAttempts,
+		healthPath:   options.HealthPath, healthHost: options.HealthHost, healthAttempts: options.HealthAttempts,
 		healthInterval: options.HealthInterval, stopTimeout: options.StopTimeout,
 	}, nil
 }
@@ -117,7 +120,10 @@ func (e *Executor) CheckHealth(ctx context.Context, runtime domain.RuntimeInfo) 
 	if runtime.URL == "" {
 		return errors.New("check container health: runtime URL is required")
 	}
-	healthURL := strings.TrimRight(runtime.URL, "/") + e.healthPath
+	healthURL, err := healthCheckURL(runtime.URL, e.healthHost, e.healthPath)
+	if err != nil {
+		return err
+	}
 	var lastErr error
 
 	for attempt := 1; attempt <= e.healthAttempts; attempt++ {
@@ -148,6 +154,22 @@ func (e *Executor) CheckHealth(ctx context.Context, runtime domain.RuntimeInfo) 
 		}
 	}
 	return fmt.Errorf("container health check failed after %d attempts at %s: %w", e.healthAttempts, healthURL, lastErr)
+}
+
+func healthCheckURL(runtimeURL, healthHost, healthPath string) (string, error) {
+	parsed, err := url.Parse(runtimeURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("build container health URL from %q: invalid runtime URL", runtimeURL)
+	}
+	if healthHost != "" {
+		if port := parsed.Port(); port != "" {
+			parsed.Host = healthHost + ":" + port
+		} else {
+			parsed.Host = healthHost
+		}
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + healthPath
+	return parsed.String(), nil
 }
 
 func (e *Executor) Destroy(ctx context.Context, runtime domain.RuntimeInfo) error {
@@ -182,6 +204,9 @@ func validateOptions(options Options) error {
 	}
 	if !strings.HasPrefix(options.HealthPath, "/") {
 		return errors.New("configure Docker executor: health path must start with /")
+	}
+	if strings.TrimSpace(options.HealthHost) == "" {
+		return errors.New("configure Docker executor: health host is required")
 	}
 	if options.HealthAttempts < 1 || options.HealthInterval <= 0 || options.HealthTimeout <= 0 || options.StopTimeout <= 0 {
 		return errors.New("configure Docker executor: health attempts and timeouts must be greater than zero")

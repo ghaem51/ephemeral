@@ -98,7 +98,8 @@ func (uc *UseCase) Create(ctx context.Context, request Request) (*domain.Environ
 	now := uc.now()
 	environment := &domain.Environment{
 		ID: environmentID, Name: spec.Name, Image: spec.Image, ContainerPort: spec.ContainerPort,
-		Status: domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
+		ApplicationVersion: spec.ApplicationVersion,
+		Status:             domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
 	}
 	workflow, err := uc.newWorkflow(workflowID, environmentID)
 	if err != nil {

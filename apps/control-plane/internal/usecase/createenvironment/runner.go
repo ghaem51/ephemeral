@@ -164,6 +164,7 @@ func (uc *UseCase) persistFailure(
 			_ = uc.workflows.UpdateStep(ctx, step)
 		}
 	}
+	uc.skipPendingSteps(ctx, workflow)
 	if workflow.Status == domain.WorkflowStatusRunning {
 		if err := workflow.TransitionTo(domain.WorkflowStatusFailed, uc.now()); err == nil {
 			_ = uc.workflows.Update(ctx, workflow)
@@ -173,6 +174,19 @@ func (uc *UseCase) persistFailure(
 		if err := environment.TransitionTo(domain.EnvironmentStatusFailed, uc.now()); err == nil {
 			environment.ErrorMessage = message
 			_ = uc.environments.Update(ctx, environment)
+		}
+	}
+}
+
+func (uc *UseCase) skipPendingSteps(ctx context.Context, workflow *domain.Workflow) {
+	for index := range workflow.Steps {
+		step := &workflow.Steps[index]
+		if step.Status != domain.StepStatusPending {
+			continue
+		}
+		if err := step.TransitionTo(domain.StepStatusSkipped, uc.now()); err == nil {
+			step.Message = "skipped after workflow failure"
+			_ = uc.workflows.UpdateStep(ctx, step)
 		}
 	}
 }

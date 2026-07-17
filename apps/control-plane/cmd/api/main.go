@@ -50,7 +50,7 @@ func main() {
 		logger.Warn("recovered stale workflow", "environment_id", workflow.EnvironmentID, "workflow_id", workflow.WorkflowID)
 	}
 	runtimeExecutor, err := dockerexecutor.NewFromEnv(dockerexecutor.Options{
-		AllowedImages: cfg.DockerImages, HealthPath: cfg.HealthPath,
+		AllowedImages: cfg.DockerImages, HealthPath: cfg.HealthPath, HealthHost: cfg.DockerHealthHost,
 		HealthAttempts: cfg.HealthAttempts, HealthInterval: cfg.HealthInterval,
 		HealthTimeout: cfg.HealthTimeout, StopTimeout: cfg.DockerStopTimeout,
 	})

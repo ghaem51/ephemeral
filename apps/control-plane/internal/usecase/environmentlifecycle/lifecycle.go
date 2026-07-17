@@ -32,8 +32,9 @@ type UseCase struct {
 	newID        func() (string, error)
 	logger       *slog.Logger
 
-	mu      sync.Mutex
-	started map[string]chan struct{}
+	mu          sync.Mutex
+	started     map[string]chan struct{}
+	admissionMu sync.Mutex
 }
 
 func New(
@@ -55,6 +56,9 @@ func New(
 }
 
 func (uc *UseCase) Destroy(ctx context.Context, environmentID string) (*domain.Environment, error) {
+	uc.admissionMu.Lock()
+	defer uc.admissionMu.Unlock()
+
 	environment, err := uc.environments.GetByID(ctx, environmentID)
 	if err != nil {
 		return nil, err
@@ -90,6 +94,9 @@ func (uc *UseCase) Destroy(ctx context.Context, environmentID string) (*domain.E
 // This deliberately trades speed for a simple guarantee that retries cannot
 // accidentally leave two containers serving the same environment.
 func (uc *UseCase) Retry(ctx context.Context, environmentID string) (*domain.Environment, error) {
+	uc.admissionMu.Lock()
+	defer uc.admissionMu.Unlock()
+
 	environment, err := uc.environments.GetByID(ctx, environmentID)
 	if err != nil {
 		return nil, err

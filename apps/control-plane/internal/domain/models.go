@@ -3,17 +3,18 @@ package domain
 import "time"
 
 type Environment struct {
-	ID            string
-	Name          string
-	Image         string
-	ContainerPort int
-	HostPort      int
-	ContainerID   string
-	URL           string
-	Status        EnvironmentStatus
-	ErrorMessage  string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID                 string
+	Name               string
+	Image              string
+	ContainerPort      int
+	ApplicationVersion string
+	HostPort           int
+	ContainerID        string
+	URL                string
+	Status             EnvironmentStatus
+	ErrorMessage       string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type EnvironmentSpec struct {

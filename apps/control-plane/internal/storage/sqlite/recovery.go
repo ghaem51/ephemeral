@@ -54,6 +54,14 @@ func (s *Store) RecoverStaleWorkflows(ctx context.Context, at time.Time) ([]Reco
 			return nil, fmt.Errorf("fail running step for workflow %q: %w", item.WorkflowID, err)
 		}
 		if _, err := tx.ExecContext(ctx, `
+			UPDATE workflow_steps
+			SET status = 'SKIPPED', message = ?, completed_at = ?
+			WHERE workflow_id = ? AND status = 'PENDING'`,
+			"skipped after workflow interruption", completedAt, item.WorkflowID,
+		); err != nil {
+			return nil, fmt.Errorf("skip pending steps for workflow %q: %w", item.WorkflowID, err)
+		}
+		if _, err := tx.ExecContext(ctx, `
 			UPDATE workflows SET status = 'FAILED', completed_at = ? WHERE id = ? AND status = 'RUNNING'`,
 			completedAt, item.WorkflowID,
 		); err != nil {

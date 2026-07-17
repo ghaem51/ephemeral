@@ -87,6 +87,7 @@ export function EnvironmentDetailsPage() {
           <div className="card-heading"><div><p className="eyebrow">Runtime</p><h2>Environment information</h2></div></div>
           <dl className="metadata-grid">
             <Metadata label="Image"><code>{data.image}</code></Metadata>
+            {data.applicationVersion ? <Metadata label="Application version"><code>{data.applicationVersion}</code></Metadata> : null}
             <Metadata label="Environment URL">
               {data.url ? <a href={data.url} target="_blank" rel="noreferrer">{data.url} ↗</a> : 'Not available'}
             </Metadata>

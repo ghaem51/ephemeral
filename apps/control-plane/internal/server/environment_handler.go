@@ -96,18 +96,19 @@ func (h *EnvironmentHandler) Retry(c *gin.Context) {
 }
 
 type environmentResponse struct {
-	ID             string            `json:"id"`
-	Name           string            `json:"name"`
-	Image          string            `json:"image"`
-	ContainerPort  int               `json:"containerPort"`
-	HostPort       int               `json:"hostPort"`
-	ContainerID    string            `json:"containerId"`
-	URL            string            `json:"url"`
-	Status         string            `json:"status"`
-	ErrorMessage   string            `json:"errorMessage,omitempty"`
-	CreatedAt      time.Time         `json:"createdAt"`
-	UpdatedAt      time.Time         `json:"updatedAt"`
-	LatestWorkflow *workflowResponse `json:"latestWorkflow"`
+	ID                 string            `json:"id"`
+	Name               string            `json:"name"`
+	Image              string            `json:"image"`
+	ContainerPort      int               `json:"containerPort"`
+	ApplicationVersion string            `json:"applicationVersion,omitempty"`
+	HostPort           int               `json:"hostPort"`
+	ContainerID        string            `json:"containerId"`
+	URL                string            `json:"url"`
+	Status             string            `json:"status"`
+	ErrorMessage       string            `json:"errorMessage,omitempty"`
+	CreatedAt          time.Time         `json:"createdAt"`
+	UpdatedAt          time.Time         `json:"updatedAt"`
+	LatestWorkflow     *workflowResponse `json:"latestWorkflow"`
 }
 
 type workflowResponse struct {
@@ -137,7 +138,8 @@ func toEnvironmentResponse(result *environmentapi.Result) environmentResponse {
 	response := environmentResponse{
 		ID: environment.ID, Name: environment.Name, Image: environment.Image,
 		ContainerPort: environment.ContainerPort, HostPort: environment.HostPort,
-		ContainerID: environment.ContainerID, URL: environment.URL, Status: string(environment.Status),
+		ApplicationVersion: environment.ApplicationVersion,
+		ContainerID:        environment.ContainerID, URL: environment.URL, Status: string(environment.Status),
 		ErrorMessage: environment.ErrorMessage, CreatedAt: environment.CreatedAt, UpdatedAt: environment.UpdatedAt,
 	}
 	if result.Workflow != nil {

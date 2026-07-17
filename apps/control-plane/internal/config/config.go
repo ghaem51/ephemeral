@@ -16,6 +16,7 @@ const (
 	defaultShutdownTimeout      = 10 * time.Second
 	defaultDockerImages         = "envpilot/demo-service:healthy,envpilot/demo-service:unhealthy"
 	defaultHealthPath           = "/health"
+	defaultDockerHealthHost     = "localhost"
 	defaultHealthAttempts       = 15
 	defaultHealthInterval       = time.Second
 	defaultHealthTimeout        = 2 * time.Second
@@ -31,6 +32,7 @@ type Config struct {
 	ShutdownTimeout      time.Duration
 	DockerImages         []string
 	HealthPath           string
+	DockerHealthHost     string
 	HealthAttempts       int
 	HealthInterval       time.Duration
 	HealthTimeout        time.Duration
@@ -82,6 +84,7 @@ func Load() (Config, error) {
 		ShutdownTimeout:      shutdownTimeout,
 		DockerImages:         commaSeparatedEnv("DOCKER_ALLOWED_IMAGES", defaultDockerImages),
 		HealthPath:           envOrDefault("DOCKER_HEALTH_PATH", defaultHealthPath),
+		DockerHealthHost:     envOrDefault("DOCKER_HEALTH_HOST", defaultDockerHealthHost),
 		HealthAttempts:       healthAttempts,
 		HealthInterval:       healthInterval,
 		HealthTimeout:        healthTimeout,

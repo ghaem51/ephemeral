@@ -11,12 +11,15 @@ services:
       DATABASE_PATH: /var/lib/envpilot/envpilot.db
       DOCKER_HOST: unix:///var/run/docker.sock
       DOCKER_ALLOWED_IMAGES: envpilot/demo-service:healthy,envpilot/demo-service:unhealthy
+      DOCKER_HEALTH_HOST: host.docker.internal
       LOG_LEVEL: info
     ports:
       - "8080:8080"
     volumes:
       - envpilot-data:/var/lib/envpilot
       - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - envpilot-network
     healthcheck:

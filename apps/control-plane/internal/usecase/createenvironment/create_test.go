@@ -54,6 +54,9 @@ func TestCreateRunsSuccessfulWorkflow(t *testing.T) {
 	if persisted.ContainerID != runtime.ContainerID || persisted.HostPort != runtime.HostPort || persisted.URL != runtime.URL {
 		t.Fatalf("runtime was not persisted: %#v", persisted)
 	}
+	if persisted.ApplicationVersion != validRequest().ApplicationVersion {
+		t.Fatalf("application version was not persisted: %#v", persisted)
+	}
 	if workflow.Status != domain.WorkflowStatusSucceeded || workflow.StartedAt == nil || workflow.CompletedAt == nil {
 		t.Fatalf("workflow did not succeed: %#v", workflow)
 	}
@@ -230,6 +233,11 @@ func TestCreateWorkflowFailures(t *testing.T) {
 			if failedStep.Status != domain.StepStatusFailed || failedStep.ErrorMessage != failure.Error() || failedStep.Message != "step failed" {
 				t.Fatalf("step failure was not persisted: %#v", failedStep)
 			}
+			for _, step := range workflow.Steps {
+				if step.Order > failedStep.Order && step.Status != domain.StepStatusSkipped {
+					t.Fatalf("step after failure was not skipped: %#v", step)
+				}
+			}
 		})
 	}
 }
@@ -352,7 +360,7 @@ func waitForLatestWorkflow(t *testing.T, uc *UseCase, store *sqlite.Store, envir
 }
 
 func validRequest() Request {
-	return Request{Name: "preview", Image: "demo:latest", ContainerPort: 8080}
+	return Request{Name: "preview", Image: "demo:latest", ContainerPort: 8080, ApplicationVersion: "1.2.3"}
 }
 
 func testRuntime() domain.RuntimeInfo {

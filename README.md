@@ -40,10 +40,10 @@ build time and configure an appropriate trusted origin or reverse proxy.
 | `make lint` | Run Go formatting/vetting and frontend linting |
 | `make demo-images` | Build the healthy and unhealthy allowlisted images |
 | `make clean` | Stop containers and remove generated web build output |
-| `make reset` | Stop containers and delete the SQLite named volume |
+| `make reset` | Remove managed demo containers, stop services, and delete SQLite data |
 
-`make reset` permanently removes local EnvPilot database state. It does not
-remove unrelated Docker resources.
+`make reset` permanently removes local EnvPilot database state and containers
+labeled `envpilot.managed=true`. It does not remove unrelated Docker resources.
 
 SQLite is stored in the named volume `envpilot-data`. Compose uses the explicit
 network `envpilot-network` and containers `envpilot-control-plane` and
@@ -55,6 +55,18 @@ You can also use Compose directly after building the demo images:
 make demo-images
 docker compose up --build
 ```
+
+## Demo walkthrough
+
+1. Run `make dev` and open <http://localhost:3000>.
+2. Create `healthy-demo` with **Healthy demo service** and optional version `1.0.0`.
+3. Watch all five create steps complete, then use **Open environment**.
+4. Create `failure-demo` with **Simulated health failure** and watch `CHECK_HEALTH` fail while later steps become skipped.
+5. Use **Retry** on `failure-demo`. The retry first removes the known failed container and provisions the same saved workload configuration again; because its profile remains intentionally unhealthy, it deterministically demonstrates another health failure.
+6. Use **Destroy** on either READY or FAILED environments and confirm the workflow reaches DESTROYED.
+
+Stop the stack with `make clean`. Use `make reset` when you also want to
+remove all labeled demo containers and reset SQLite state.
 
 ## Docker socket security
 
@@ -86,6 +98,10 @@ and retains known container information. The environment is therefore visible
 as failed and can be retried (which cleans up the known runtime first) or
 destroyed. EnvPilot does not silently resume an operation whose side effects
 cannot be proven.
+
+When the control plane runs in Compose, health checks reach host-published demo
+ports through `host.docker.internal`; browser-facing environment URLs remain on
+`localhost`. Compose supplies the Linux `host-gateway` mapping explicitly.
 
 ## Future improvements
 

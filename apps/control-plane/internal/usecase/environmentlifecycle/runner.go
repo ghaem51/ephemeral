@@ -65,7 +65,7 @@ func (uc *UseCase) executeRetry(ctx context.Context, environment *domain.Environ
 	runtime := runtimeFromEnvironment(environment)
 	spec := domain.EnvironmentSpec{
 		ID: environment.ID, Name: environment.Name, Image: environment.Image,
-		ContainerPort: environment.ContainerPort,
+		ContainerPort: environment.ContainerPort, ApplicationVersion: environment.ApplicationVersion,
 	}
 	operations := []stepOperation{
 		func(ctx context.Context) error {
@@ -189,6 +189,7 @@ func (uc *UseCase) fail(ctx context.Context, environment *domain.Environment, wo
 			_ = uc.workflows.UpdateStep(ctx, step)
 		}
 	}
+	uc.skipPendingSteps(ctx, workflow)
 	if workflow.Status == domain.WorkflowStatusRunning {
 		if err := workflow.TransitionTo(domain.WorkflowStatusFailed, uc.now()); err == nil {
 			_ = uc.workflows.Update(ctx, workflow)
@@ -198,6 +199,19 @@ func (uc *UseCase) fail(ctx context.Context, environment *domain.Environment, wo
 		if err := environment.TransitionTo(domain.EnvironmentStatusFailed, uc.now()); err == nil {
 			environment.ErrorMessage = message
 			_ = uc.environments.Update(ctx, environment)
+		}
+	}
+}
+
+func (uc *UseCase) skipPendingSteps(ctx context.Context, workflow *domain.Workflow) {
+	for index := range workflow.Steps {
+		step := &workflow.Steps[index]
+		if step.Status != domain.StepStatusPending {
+			continue
+		}
+		if err := step.TransitionTo(domain.StepStatusSkipped, uc.now()); err == nil {
+			step.Message = "skipped after workflow failure"
+			_ = uc.workflows.UpdateStep(ctx, step)
 		}
 	}
 }

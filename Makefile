@@ -6,7 +6,7 @@ DEMO_SERVICE_DIR := $(CURDIR)/demo/demo-service
 GO_CONTROL := docker run --rm -v "$(CONTROL_PLANE_DIR):/workspace" -w /workspace golang:1.24
 GO_DEMO := docker run --rm -v "$(DEMO_SERVICE_DIR):/workspace" -w /workspace golang:1.24
 
-.PHONY: dev build test lint demo-images clean reset
+.PHONY: dev build test lint demo-images clean reset clean-managed
 
 dev: demo-images
 	$(COMPOSE) up --build
@@ -34,6 +34,10 @@ clean:
 	$(COMPOSE) down --remove-orphans
 	rm -rf apps/web-console/dist
 
-reset:
+reset: clean-managed
 	$(COMPOSE) down --volumes --remove-orphans
 	rm -rf apps/web-console/dist
+
+clean-managed:
+	@managed="$$(docker ps -aq --filter label=envpilot.managed=true)"; \
+	if [ -n "$$managed" ]; then docker rm -f $$managed; fi

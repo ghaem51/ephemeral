@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -189,6 +190,47 @@ func TestForeignKeysAreEnabled(t *testing.T) {
 	}
 }
 
+func TestOpenAddsApplicationVersionToExistingDatabase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy.db")
+	db, err := sql.Open("sqlite3", path)
+	if err != nil {
+		t.Fatalf("open legacy database: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE environments (
+		id TEXT PRIMARY KEY, name TEXT NOT NULL, image TEXT NOT NULL,
+		container_port INTEGER NOT NULL, host_port INTEGER NOT NULL,
+		container_id TEXT NOT NULL, url TEXT NOT NULL, status TEXT NOT NULL,
+		error_message TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+	)`); err != nil {
+		t.Fatalf("create legacy schema: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close legacy database: %v", err)
+	}
+
+	store, err := Open(context.Background(), path)
+	if err != nil {
+		t.Fatalf("migrate legacy database: %v", err)
+	}
+	defer store.Close()
+
+	now := time.Now().UTC()
+	environment := &domain.Environment{
+		ID: "env-versioned", Name: "versioned", Image: "demo:latest", ContainerPort: 8080,
+		ApplicationVersion: "2.0.0", Status: domain.EnvironmentStatusPending, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := store.Environments().Create(context.Background(), environment); err != nil {
+		t.Fatalf("create migrated environment: %v", err)
+	}
+	loaded, err := store.Environments().GetByID(context.Background(), environment.ID)
+	if err != nil {
+		t.Fatalf("load migrated environment: %v", err)
+	}
+	if loaded.ApplicationVersion != environment.ApplicationVersion {
+		t.Fatalf("application version was not migrated: %#v", loaded)
+	}
+}
+
 func TestRecoverStaleWorkflowsMarksWorkflowStepAndEnvironmentFailed(t *testing.T) {
 	store := openTestStore(t)
 	ctx := context.Background()
@@ -232,8 +274,8 @@ func TestRecoverStaleWorkflowsMarksWorkflowStepAndEnvironmentFailed(t *testing.T
 	if gotWorkflow.Steps[0].Status != domain.StepStatusFailed || gotWorkflow.Steps[0].ErrorMessage != staleWorkflowMessage || gotWorkflow.Steps[0].CompletedAt == nil {
 		t.Fatalf("running step was not failed with recovery context: %#v", gotWorkflow.Steps[0])
 	}
-	if gotWorkflow.Steps[1].Status != domain.StepStatusPending {
-		t.Fatalf("pending audit history should be preserved: %#v", gotWorkflow.Steps[1])
+	if gotWorkflow.Steps[1].Status != domain.StepStatusSkipped || gotWorkflow.Steps[1].Message != "skipped after workflow interruption" {
+		t.Fatalf("pending step should be closed as skipped: %#v", gotWorkflow.Steps[1])
 	}
 
 	gotEnvironment, err := store.Environments().GetByID(ctx, environment.ID)

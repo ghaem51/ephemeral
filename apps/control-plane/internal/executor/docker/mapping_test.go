@@ -95,6 +95,20 @@ func TestRuntimeFromInspectionRejectsMissingPort(t *testing.T) {
 	}
 }
 
+func TestHealthCheckURLUsesInternalHostWithoutChangingPublicRuntimeURL(t *testing.T) {
+	publicURL := "http://localhost:49152"
+	got, err := healthCheckURL(publicURL, "host.docker.internal", "/health")
+	if err != nil {
+		t.Fatalf("build health URL: %v", err)
+	}
+	if got != "http://host.docker.internal:49152/health" {
+		t.Fatalf("unexpected health URL %q", got)
+	}
+	if publicURL != "http://localhost:49152" {
+		t.Fatalf("public URL was changed: %q", publicURL)
+	}
+}
+
 func TestCheckHealthRetriesUntilSuccess(t *testing.T) {
 	var attempts atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {

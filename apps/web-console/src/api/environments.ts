@@ -39,6 +39,7 @@ export type Environment = {
   name: string
   image: string
   containerPort: number
+  applicationVersion?: string
   hostPort: number
   containerId: string
   url: string

@@ -92,6 +92,9 @@ func TestDestroyFailureIsPersisted(t *testing.T) {
 	if workflow.Status != domain.WorkflowStatusFailed || workflow.Steps[0].Status != domain.StepStatusFailed || workflow.Steps[0].ErrorMessage != failure.Error() {
 		t.Fatalf("workflow failure was not persisted: %#v", workflow)
 	}
+	if workflow.Steps[1].Status != domain.StepStatusSkipped {
+		t.Fatalf("step after destroy failure was not skipped: %#v", workflow.Steps[1])
+	}
 }
 
 func TestRetryAfterHealthCheckFailure(t *testing.T) {
@@ -107,8 +110,11 @@ func TestRetryAfterHealthCheckFailure(t *testing.T) {
 			calls = append(calls, "destroy:"+runtime.ContainerID)
 			return nil
 		},
-		CreateFunc: func(context.Context, domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
+		CreateFunc: func(_ context.Context, spec domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
 			calls = append(calls, "create")
+			if spec.ApplicationVersion != "1.2.3" {
+				t.Fatalf("retry lost application version: %#v", spec)
+			}
 			return newRuntime, nil
 		},
 		StartFunc: func(context.Context, domain.RuntimeInfo) (domain.RuntimeInfo, error) {
@@ -184,7 +190,8 @@ func createEnvironment(t *testing.T, store *sqlite.Store, status domain.Environm
 	now := time.Date(2026, time.July, 16, 11, 0, 0, 0, time.UTC)
 	environment := &domain.Environment{
 		ID: "env-1", Name: "preview", Image: "envpilot/demo-service:healthy", ContainerPort: 8080,
-		ContainerID: "container-1", HostPort: 49152, URL: "http://localhost:49152",
+		ApplicationVersion: "1.2.3",
+		ContainerID:        "container-1", HostPort: 49152, URL: "http://localhost:49152",
 		Status: status, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := store.Environments().Create(context.Background(), environment); err != nil {
