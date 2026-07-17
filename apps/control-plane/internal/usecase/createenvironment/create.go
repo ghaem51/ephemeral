@@ -17,6 +17,7 @@ import (
 )
 
 var environmentNamePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
+var applicationVersionPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 const unhealthyDemoImage = "envpilot/demo-service:unhealthy"
 
@@ -29,10 +30,11 @@ const (
 )
 
 type Request struct {
-	Name            string
-	Image           string
-	ContainerPort   int
-	SimulateFailure bool
+	Name               string
+	Image              string
+	ContainerPort      int
+	SimulateFailure    bool
+	ApplicationVersion string
 }
 
 type UseCase struct {
@@ -156,7 +158,7 @@ func (uc *UseCase) newWorkflow(id, environmentID string) (*domain.Workflow, erro
 func validate(request Request) (domain.EnvironmentSpec, error) {
 	spec := domain.EnvironmentSpec{
 		Name: strings.TrimSpace(request.Name), Image: strings.TrimSpace(request.Image),
-		ContainerPort: request.ContainerPort,
+		ContainerPort: request.ContainerPort, ApplicationVersion: strings.TrimSpace(request.ApplicationVersion),
 	}
 	if spec.Name == "" {
 		return domain.EnvironmentSpec{}, fmt.Errorf("name is required: %w", domain.ErrValidation)
@@ -172,6 +174,9 @@ func validate(request Request) (domain.EnvironmentSpec, error) {
 	}
 	if request.SimulateFailure {
 		spec.Image = unhealthyDemoImage
+	}
+	if spec.ApplicationVersion != "" && !applicationVersionPattern.MatchString(spec.ApplicationVersion) {
+		return domain.EnvironmentSpec{}, fmt.Errorf("application version must be 1-64 letters, numbers, dots, underscores, or hyphens: %w", domain.ErrValidation)
 	}
 	if spec.ContainerPort < 1 || spec.ContainerPort > 65535 {
 		return domain.EnvironmentSpec{}, fmt.Errorf("container port must be between 1 and 65535: %w", domain.ErrValidation)

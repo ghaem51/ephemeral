@@ -132,6 +132,15 @@ func TestSimulateFailureSelectsUnhealthyDemoImage(t *testing.T) {
 	}
 }
 
+func TestApplicationVersionValidation(t *testing.T) {
+	if _, err := validate(Request{
+		Name: "preview", Image: "envpilot/demo-service:healthy", ContainerPort: 8080,
+		ApplicationVersion: "release candidate",
+	}); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("expected ErrValidation, got %v", err)
+	}
+}
+
 func TestCreateRejectsDuplicateActiveName(t *testing.T) {
 	block := make(chan struct{})
 	fake := &executortest.Fake{CreateFunc: func(context.Context, domain.EnvironmentSpec) (domain.RuntimeInfo, error) {

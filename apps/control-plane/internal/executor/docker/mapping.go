@@ -13,11 +13,15 @@ import (
 
 func createOptions(spec domain.EnvironmentSpec) client.ContainerCreateOptions {
 	port := network.MustParsePort(fmt.Sprintf("%d/tcp", spec.ContainerPort))
+	environment := []string{"ENVIRONMENT_NAME=" + spec.Name}
+	if spec.ApplicationVersion != "" {
+		environment = append(environment, "APP_VERSION="+spec.ApplicationVersion)
+	}
 	return client.ContainerCreateOptions{
 		Name: containerName(spec),
 		Config: &container.Config{
 			Image: spec.Image,
-			Env:   []string{"ENVIRONMENT_NAME=" + spec.Name},
+			Env:   environment,
 			Labels: map[string]string{
 				LabelManaged: "true", LabelEnvironmentID: spec.ID, LabelEnvironmentName: spec.Name,
 			},

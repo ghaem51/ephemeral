@@ -17,10 +17,11 @@ type Environment struct {
 }
 
 type EnvironmentSpec struct {
-	ID            string
-	Name          string
-	Image         string
-	ContainerPort int
+	ID                 string
+	Name               string
+	Image              string
+	ContainerPort      int
+	ApplicationVersion string
 }
 
 type RuntimeInfo struct {

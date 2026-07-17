@@ -28,10 +28,11 @@ func NewEnvironmentHandler(service EnvironmentService) *EnvironmentHandler {
 }
 
 type createEnvironmentRequest struct {
-	Name            string `json:"name"`
-	Image           string `json:"image"`
-	ContainerPort   int    `json:"containerPort"`
-	SimulateFailure bool   `json:"simulateFailure"`
+	Name               string `json:"name"`
+	Image              string `json:"image"`
+	ContainerPort      int    `json:"containerPort"`
+	SimulateFailure    bool   `json:"simulateFailure"`
+	ApplicationVersion string `json:"applicationVersion"`
 }
 
 func (h *EnvironmentHandler) Create(c *gin.Context) {
@@ -43,7 +44,8 @@ func (h *EnvironmentHandler) Create(c *gin.Context) {
 
 	result, err := h.service.Create(c.Request.Context(), createenvironment.Request{
 		Name: request.Name, Image: request.Image, ContainerPort: request.ContainerPort,
-		SimulateFailure: request.SimulateFailure,
+		SimulateFailure:    request.SimulateFailure,
+		ApplicationVersion: request.ApplicationVersion,
 	})
 	if err != nil {
 		writeDomainError(c, err)
