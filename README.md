@@ -81,10 +81,14 @@ permissions. On Kubernetes, that would normally mean a dedicated worker using
 a constrained service account and explicit workload policies—not mounting a
 node's Docker socket into the API process.
 
-EnvPilot additionally limits the assessment executor to two demo image names,
-loopback port publishing, no privileged mode, and no host mounts. Those controls
-reduce accidental scope but do not make Docker socket access safe for an
-untrusted production service.
+The local stack accepts custom Docker image names so operators can test more
+than the two bundled demo images. Custom images must already be available to
+the Docker Engine, expose an HTTP port, and respond successfully on `/health`.
+Set `DOCKER_ALLOWED_IMAGES` to a comma-separated allowlist instead of `*` when
+custom images are not required. EnvPilot still enforces loopback-only port
+publishing, no privileged mode, and no host mounts. Those controls reduce
+accidental scope but do not make Docker socket access safe for an untrusted
+production service.
 
 ## Startup and recovery
 

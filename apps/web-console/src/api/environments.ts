@@ -52,8 +52,8 @@ export type Environment = {
 
 export type CreateEnvironmentInput = {
   name: string
-  image: 'envpilot/demo-service:healthy'
-  containerPort: 8080
+  image: string
+  containerPort: number
   simulateFailure: boolean
   applicationVersion?: string
 }

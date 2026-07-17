@@ -14,7 +14,7 @@ const (
 	defaultDatabasePath         = "envpilot.db"
 	defaultReadHeaderTimeout    = 5 * time.Second
 	defaultShutdownTimeout      = 10 * time.Second
-	defaultDockerImages         = "envpilot/demo-service:healthy,envpilot/demo-service:unhealthy"
+	defaultDockerImages         = "*"
 	defaultHealthPath           = "/health"
 	defaultDockerHealthHost     = "localhost"
 	defaultHealthAttempts       = 15

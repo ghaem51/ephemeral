@@ -49,10 +49,15 @@ func TestCreateOptionsAreRestrictedAndLabeled(t *testing.T) {
 	}
 }
 
-func TestValidateSpecEnforcesImageAllowlist(t *testing.T) {
+func TestValidateSpecEnforcesImagePolicy(t *testing.T) {
 	allowed := map[string]struct{}{"envpilot/demo-service:healthy": {}}
-	if err := validateSpec(validSpec(), allowed); err != nil {
+	if err := validateSpec(validSpec(), allowed, false); err != nil {
 		t.Fatalf("valid spec rejected: %v", err)
+	}
+	custom := validSpec()
+	custom.Image = "ghcr.io/example/service:v2"
+	if err := validateSpec(custom, allowed, true); err != nil {
+		t.Fatalf("custom image rejected when any image is allowed: %v", err)
 	}
 
 	tests := []domain.EnvironmentSpec{
@@ -62,9 +67,15 @@ func TestValidateSpecEnforcesImageAllowlist(t *testing.T) {
 		{ID: "env-1", Name: "preview", Image: "envpilot/demo-service:healthy", ContainerPort: 0},
 	}
 	for _, spec := range tests {
-		if err := validateSpec(spec, allowed); err == nil {
+		if err := validateSpec(spec, allowed, false); err == nil {
 			t.Fatalf("expected spec to be rejected: %#v", spec)
 		}
+	}
+
+	emptyImage := validSpec()
+	emptyImage.Image = " "
+	if err := validateSpec(emptyImage, allowed, true); err == nil {
+		t.Fatal("expected empty image to be rejected even when any image is allowed")
 	}
 }
 

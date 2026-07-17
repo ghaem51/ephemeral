@@ -22,6 +22,7 @@ const (
 	LabelManaged         = "envpilot.managed"
 	LabelEnvironmentID   = "envpilot.environment.id"
 	LabelEnvironmentName = "envpilot.environment.name"
+	AllowAnyImage        = "*"
 )
 
 var _ executor.EnvironmentExecutor = (*Executor)(nil)
@@ -39,6 +40,7 @@ type Options struct {
 type Executor struct {
 	client         *client.Client
 	allowedImages  map[string]struct{}
+	allowAnyImage  bool
 	healthClient   *http.Client
 	healthPath     string
 	healthHost     string
@@ -60,11 +62,16 @@ func NewFromEnv(options Options) (*Executor, error) {
 	}
 
 	allowedImages := make(map[string]struct{}, len(options.AllowedImages))
+	allowAnyImage := false
 	for _, image := range options.AllowedImages {
+		if image == AllowAnyImage {
+			allowAnyImage = true
+			continue
+		}
 		allowedImages[image] = struct{}{}
 	}
 	return &Executor{
-		client: dockerClient, allowedImages: allowedImages,
+		client: dockerClient, allowedImages: allowedImages, allowAnyImage: allowAnyImage,
 		healthClient: &http.Client{Timeout: options.HealthTimeout},
 		healthPath:   options.HealthPath, healthHost: options.HealthHost, healthAttempts: options.HealthAttempts,
 		healthInterval: options.HealthInterval, stopTimeout: options.StopTimeout,
@@ -83,7 +90,7 @@ func (e *Executor) Ping(ctx context.Context) error {
 }
 
 func (e *Executor) Create(ctx context.Context, spec domain.EnvironmentSpec) (domain.RuntimeInfo, error) {
-	if err := validateSpec(spec, e.allowedImages); err != nil {
+	if err := validateSpec(spec, e.allowedImages, e.allowAnyImage); err != nil {
 		return domain.RuntimeInfo{}, err
 	}
 
@@ -214,14 +221,17 @@ func validateOptions(options Options) error {
 	return nil
 }
 
-func validateSpec(spec domain.EnvironmentSpec, allowedImages map[string]struct{}) error {
+func validateSpec(spec domain.EnvironmentSpec, allowedImages map[string]struct{}, allowAnyImage bool) error {
 	if strings.TrimSpace(spec.ID) == "" {
 		return errors.New("validate Docker environment spec: environment ID is required")
 	}
 	if strings.TrimSpace(spec.Name) == "" {
 		return errors.New("validate Docker environment spec: environment name is required")
 	}
-	if _, allowed := allowedImages[spec.Image]; !allowed {
+	if strings.TrimSpace(spec.Image) == "" {
+		return errors.New("validate Docker environment spec: image is required")
+	}
+	if _, allowed := allowedImages[spec.Image]; !allowAnyImage && !allowed {
 		return fmt.Errorf("validate Docker environment spec: image %q is not allowed", spec.Image)
 	}
 	if spec.ContainerPort < 1 || spec.ContainerPort > 65535 {

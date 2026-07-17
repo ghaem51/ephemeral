@@ -42,6 +42,25 @@ describe('CreateEnvironmentPage validation', () => {
     expect(version).toHaveAttribute('pattern', '[A-Za-z0-9][A-Za-z0-9._-]{0,63}')
     expect(createEnvironment).not.toHaveBeenCalled()
   })
+
+  it('submits a custom image and container port', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.type(screen.getByLabelText('Environment name'), 'custom-service')
+    await user.click(screen.getByRole('radio', { name: /Custom Docker image/ }))
+    await user.type(screen.getByLabelText('Container image'), 'nginx:latest')
+    await user.clear(screen.getByLabelText('Container port'))
+    await user.type(screen.getByLabelText('Container port'), '80')
+    await user.click(screen.getByRole('button', { name: 'Create environment' }))
+
+    expect(vi.mocked(createEnvironment).mock.calls[0]?.[0]).toEqual({
+      name: 'custom-service',
+      image: 'nginx:latest',
+      containerPort: 80,
+      simulateFailure: false,
+    })
+  })
 })
 
 function renderPage() {

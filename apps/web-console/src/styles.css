@@ -418,6 +418,14 @@ input:not([type]) {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.profile-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.custom-image-fields {
+  margin-top: 1.25rem;
+}
+
 .profile-option {
   align-items: flex-start;
   border: 1px solid #cbd5cd;
