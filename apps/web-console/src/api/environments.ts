@@ -9,13 +9,15 @@ export type EnvironmentStatus =
   | 'DESTROYED'
 
 export type WorkflowOperation = 'CREATE' | 'DESTROY' | 'RETRY'
+export type WorkflowStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+export type StepStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'SKIPPED'
 
 export type WorkflowStep = {
   id: string
   workflowId: string
   name: string
   order: number
-  status: string
+  status: StepStatus
   message: string
   errorMessage?: string
   startedAt: string | null
@@ -26,7 +28,7 @@ export type Workflow = {
   id: string
   environmentId: string
   operation: WorkflowOperation
-  status: string
+  status: WorkflowStatus
   startedAt: string | null
   completedAt: string | null
   steps: WorkflowStep[]
@@ -66,6 +68,28 @@ export function createEnvironment(input: CreateEnvironmentInput) {
   })
 }
 
+export function getEnvironment(id: string) {
+  return apiRequest<Environment>(`/api/v1/environments/${encodeURIComponent(id)}`)
+}
+
+export function retryEnvironment(id: string) {
+  return apiRequest<Environment>(`/api/v1/environments/${encodeURIComponent(id)}/retry`, {
+    method: 'POST',
+  })
+}
+
+export function destroyEnvironment(id: string) {
+  return apiRequest<Environment>(`/api/v1/environments/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}
+
 export function isActiveEnvironment(environment: Environment) {
   return ['PENDING', 'PROVISIONING', 'DESTROYING'].includes(environment.status)
+}
+
+export function isActiveWorkflow(environment: Environment) {
+  return environment.latestWorkflow
+    ? ['PENDING', 'RUNNING'].includes(environment.latestWorkflow.status)
+    : false
 }
