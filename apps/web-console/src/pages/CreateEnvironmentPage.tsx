@@ -3,6 +3,7 @@ import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { createEnvironment } from '../api/environments'
+import { isValidApplicationVersion, isValidEnvironmentName } from './createEnvironmentValidation'
 
 type WorkloadProfile = 'healthy' | 'unhealthy'
 
@@ -23,12 +24,15 @@ export function CreateEnvironmentPage() {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (mutation.isPending) return
+    const normalizedName = name.trim()
+    const normalizedVersion = applicationVersion.trim()
+    if (!isValidEnvironmentName(normalizedName) || !isValidApplicationVersion(normalizedVersion)) return
     mutation.mutate({
-      name: name.trim(),
+      name: normalizedName,
       image: 'envpilot/demo-service:healthy',
       containerPort: 8080,
       simulateFailure: profile === 'unhealthy',
-      ...(applicationVersion.trim() ? { applicationVersion: applicationVersion.trim() } : {}),
+      ...(normalizedVersion ? { applicationVersion: normalizedVersion } : {}),
     })
   }
 

@@ -19,6 +19,7 @@ test:
 	$(GO_DEMO) go test ./...
 	npm --prefix apps/web-console ci
 	npm --prefix apps/web-console run typecheck
+	npm --prefix apps/web-console test
 
 lint:
 	$(GO_CONTROL) sh -c 'test -z "$$(gofmt -l .)" && go vet ./...'
