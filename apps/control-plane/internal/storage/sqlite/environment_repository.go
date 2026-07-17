@@ -49,7 +49,8 @@ func (r *EnvironmentRepository) GetByID(ctx context.Context, id string) (*domain
 
 func (r *EnvironmentRepository) FindByName(ctx context.Context, name string) (*domain.Environment, error) {
 	environment, err := scanEnvironment(r.db.QueryRowContext(ctx,
-		`SELECT `+environmentColumns+` FROM environments WHERE name = ?`, name))
+		`SELECT `+environmentColumns+` FROM environments WHERE name = ?
+         ORDER BY CASE WHEN status = 'DESTROYED' THEN 1 ELSE 0 END, created_at DESC LIMIT 1`, name))
 	return environment, mapReadError(err, "environment", name)
 }
 

@@ -8,7 +8,7 @@ import (
 const schema = `
 CREATE TABLE IF NOT EXISTS environments (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     image TEXT NOT NULL,
     container_port INTEGER NOT NULL,
     host_port INTEGER NOT NULL,
@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS environments (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_environments_active_name
+    ON environments(name) WHERE status != 'DESTROYED';
 
 CREATE TABLE IF NOT EXISTS workflows (
     id TEXT PRIMARY KEY,
