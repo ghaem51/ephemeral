@@ -14,6 +14,11 @@ type Creator interface {
 	Create(context.Context, createenvironment.Request) (*domain.Environment, error)
 }
 
+type Lifecycle interface {
+	Destroy(context.Context, string) (*domain.Environment, error)
+	Retry(context.Context, string) (*domain.Environment, error)
+}
+
 type Result struct {
 	Environment domain.Environment
 	Workflow    *domain.Workflow
@@ -21,16 +26,34 @@ type Result struct {
 
 type Service struct {
 	creator      Creator
+	lifecycle    Lifecycle
 	environments repository.EnvironmentRepository
 	workflows    repository.WorkflowRepository
 }
 
 func New(
 	creator Creator,
+	lifecycle Lifecycle,
 	environments repository.EnvironmentRepository,
 	workflows repository.WorkflowRepository,
 ) *Service {
-	return &Service{creator: creator, environments: environments, workflows: workflows}
+	return &Service{creator: creator, lifecycle: lifecycle, environments: environments, workflows: workflows}
+}
+
+func (s *Service) Destroy(ctx context.Context, id string) (*Result, error) {
+	environment, err := s.lifecycle.Destroy(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return s.result(ctx, environment)
+}
+
+func (s *Service) Retry(ctx context.Context, id string) (*Result, error) {
+	environment, err := s.lifecycle.Retry(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return s.result(ctx, environment)
 }
 
 func (s *Service) Create(ctx context.Context, request createenvironment.Request) (*Result, error) {

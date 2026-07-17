@@ -24,6 +24,8 @@ func writeDomainError(c *gin.Context, err error) {
 		writeError(c, http.StatusConflict, "ENVIRONMENT_ALREADY_EXISTS", err.Error(), nil)
 	case errors.Is(err, domain.ErrNotFound):
 		writeError(c, http.StatusNotFound, "ENVIRONMENT_NOT_FOUND", "environment not found", nil)
+	case errors.Is(err, domain.ErrInvalidTransition):
+		writeError(c, http.StatusConflict, "INVALID_ENVIRONMENT_STATE", err.Error(), nil)
 	default:
 		slog.Error("request failed", "request_id", requestID(c), "error", err)
 		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "an internal error occurred", nil)

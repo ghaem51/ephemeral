@@ -29,8 +29,8 @@ func NewRouter(environments *EnvironmentHandler) http.Handler {
 		api.POST("", environments.Create)
 		api.GET("", environments.List)
 		api.GET("/:id", environments.Get)
-		api.DELETE("/:id", environments.NotImplemented)
-		api.POST("/:id/retry", environments.NotImplemented)
+		api.DELETE("/:id", environments.Destroy)
+		api.POST("/:id/retry", environments.Retry)
 	}
 
 	return router

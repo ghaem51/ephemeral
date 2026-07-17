@@ -15,6 +15,8 @@ type EnvironmentService interface {
 	Create(context.Context, createenvironment.Request) (*environmentapi.Result, error)
 	List(context.Context) ([]environmentapi.Result, error)
 	Get(context.Context, string) (*environmentapi.Result, error)
+	Destroy(context.Context, string) (*environmentapi.Result, error)
+	Retry(context.Context, string) (*environmentapi.Result, error)
 }
 
 type EnvironmentHandler struct {
@@ -73,8 +75,22 @@ func (h *EnvironmentHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, toEnvironmentResponse(result))
 }
 
-func (h *EnvironmentHandler) NotImplemented(c *gin.Context) {
-	writeError(c, http.StatusNotImplemented, "NOT_IMPLEMENTED", "this operation is not implemented yet", nil)
+func (h *EnvironmentHandler) Destroy(c *gin.Context) {
+	result, err := h.service.Destroy(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeDomainError(c, err)
+		return
+	}
+	c.JSON(http.StatusAccepted, toEnvironmentResponse(result))
+}
+
+func (h *EnvironmentHandler) Retry(c *gin.Context) {
+	result, err := h.service.Retry(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeDomainError(c, err)
+		return
+	}
+	c.JSON(http.StatusAccepted, toEnvironmentResponse(result))
 }
 
 type environmentResponse struct {

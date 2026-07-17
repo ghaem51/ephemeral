@@ -16,9 +16,11 @@ import (
 )
 
 type stubEnvironmentService struct {
-	create func(context.Context, createenvironment.Request) (*environmentapi.Result, error)
-	list   func(context.Context) ([]environmentapi.Result, error)
-	get    func(context.Context, string) (*environmentapi.Result, error)
+	create  func(context.Context, createenvironment.Request) (*environmentapi.Result, error)
+	list    func(context.Context) ([]environmentapi.Result, error)
+	get     func(context.Context, string) (*environmentapi.Result, error)
+	destroy func(context.Context, string) (*environmentapi.Result, error)
+	retry   func(context.Context, string) (*environmentapi.Result, error)
 }
 
 func (s *stubEnvironmentService) Create(ctx context.Context, request createenvironment.Request) (*environmentapi.Result, error) {
@@ -31,6 +33,14 @@ func (s *stubEnvironmentService) List(ctx context.Context) ([]environmentapi.Res
 
 func (s *stubEnvironmentService) Get(ctx context.Context, id string) (*environmentapi.Result, error) {
 	return s.get(ctx, id)
+}
+
+func (s *stubEnvironmentService) Destroy(ctx context.Context, id string) (*environmentapi.Result, error) {
+	return s.destroy(ctx, id)
+}
+
+func (s *stubEnvironmentService) Retry(ctx context.Context, id string) (*environmentapi.Result, error) {
+	return s.retry(ctx, id)
 }
 
 func TestCreateEnvironment(t *testing.T) {
@@ -123,6 +133,7 @@ func TestEnvironmentErrorsUseConsistentResponse(t *testing.T) {
 		{name: "validation", err: domain.ErrValidation, wantStatus: http.StatusBadRequest, wantCode: "VALIDATION_ERROR"},
 		{name: "duplicate", err: domain.ErrAlreadyExists, wantStatus: http.StatusConflict, wantCode: "ENVIRONMENT_ALREADY_EXISTS"},
 		{name: "not found", err: domain.ErrNotFound, wantStatus: http.StatusNotFound, wantCode: "ENVIRONMENT_NOT_FOUND"},
+		{name: "invalid state", err: domain.ErrInvalidTransition, wantStatus: http.StatusConflict, wantCode: "INVALID_ENVIRONMENT_STATE"},
 		{name: "internal", err: errors.New("database unavailable"), wantStatus: http.StatusInternalServerError, wantCode: "INTERNAL_ERROR"},
 	}
 
@@ -172,7 +183,7 @@ func TestInvalidJSONReturnsDetailsAndRequestID(t *testing.T) {
 	}
 }
 
-func TestDestroyAndRetryAreNotImplemented(t *testing.T) {
+func TestDestroyAndRetryEndpoints(t *testing.T) {
 	router := NewRouter(NewEnvironmentHandler(defaultStubService()))
 	for _, test := range []struct {
 		method string
@@ -183,8 +194,8 @@ func TestDestroyAndRetryAreNotImplemented(t *testing.T) {
 	} {
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(test.method, test.path, nil))
-		if response.Code != http.StatusNotImplemented {
-			t.Fatalf("%s %s: expected 501, got %d", test.method, test.path, response.Code)
+		if response.Code != http.StatusAccepted {
+			t.Fatalf("%s %s: expected 202, got %d", test.method, test.path, response.Code)
 		}
 	}
 }
@@ -197,6 +208,15 @@ func defaultStubService() *stubEnvironmentService {
 		},
 		list: func(context.Context) ([]environmentapi.Result, error) { return []environmentapi.Result{}, nil },
 		get: func(context.Context, string) (*environmentapi.Result, error) {
+			result := testEnvironmentResult()
+			return &result, nil
+		},
+		destroy: func(context.Context, string) (*environmentapi.Result, error) {
+			result := testEnvironmentResult()
+			result.Environment.Status = domain.EnvironmentStatusDestroying
+			return &result, nil
+		},
+		retry: func(context.Context, string) (*environmentapi.Result, error) {
 			result := testEnvironmentResult()
 			return &result, nil
 		},

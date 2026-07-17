@@ -15,6 +15,7 @@ import (
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/storage/sqlite"
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/usecase/createenvironment"
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/usecase/environmentapi"
+	"github.com/ghaem51/ephemeral/apps/control-plane/internal/usecase/environmentlifecycle"
 )
 
 func main() {
@@ -55,7 +56,8 @@ func main() {
 	}()
 
 	createEnvironment := createenvironment.New(store.Environments(), store.Workflows(), runtimeExecutor)
-	environmentService := environmentapi.New(createEnvironment, store.Environments(), store.Workflows())
+	lifecycle := environmentlifecycle.New(store.Environments(), store.Workflows(), runtimeExecutor)
+	environmentService := environmentapi.New(createEnvironment, lifecycle, store.Environments(), store.Workflows())
 	environmentHandler := server.NewEnvironmentHandler(environmentService)
 
 	httpServer := &http.Server{
