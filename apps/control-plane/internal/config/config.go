@@ -10,12 +10,14 @@ import (
 
 const (
 	defaultPort              = "8080"
+	defaultDatabasePath      = "envpilot.db"
 	defaultReadHeaderTimeout = 5 * time.Second
 	defaultShutdownTimeout   = 10 * time.Second
 )
 
 type Config struct {
 	Port              string
+	DatabasePath      string
 	LogLevel          slog.Level
 	ReadHeaderTimeout time.Duration
 	ShutdownTimeout   time.Duration
@@ -39,6 +41,7 @@ func Load() (Config, error) {
 
 	return Config{
 		Port:              envOrDefault("PORT", defaultPort),
+		DatabasePath:      envOrDefault("DATABASE_PATH", defaultDatabasePath),
 		LogLevel:          logLevel,
 		ReadHeaderTimeout: readHeaderTimeout,
 		ShutdownTimeout:   shutdownTimeout,

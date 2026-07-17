@@ -11,6 +11,7 @@ import (
 
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/config"
 	"github.com/ghaem51/ephemeral/apps/control-plane/internal/server"
+	"github.com/ghaem51/ephemeral/apps/control-plane/internal/storage/sqlite"
 )
 
 func main() {
@@ -24,6 +25,17 @@ func main() {
 		Level: cfg.LogLevel,
 	}))
 	slog.SetDefault(logger)
+
+	store, err := sqlite.Open(context.Background(), cfg.DatabasePath)
+	if err != nil {
+		logger.Error("open database", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			logger.Error("close database", "error", err)
+		}
+	}()
 
 	httpServer := &http.Server{
 		Addr:              cfg.Address(),
