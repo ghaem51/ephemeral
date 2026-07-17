@@ -2596,3 +2596,483 @@ Suggested commit:
 ```text
 feat(ops): add startup checks and stale workflow recovery
 ```
+
+> Perform a final engineering assessment review of the entire EnvPilot repository.
+>
+> Do not immediately modify files.
+>
+> First inspect the project and report findings under:
+>
+> 1. Functional correctness
+> 2. Workflow-state correctness
+> 3. Concurrency risks
+> 4. Failure handling
+> 5. Docker resource cleanup
+> 6. SQLite consistency
+> 7. API design
+> 8. Frontend UX
+> 9. Local setup
+> 10. Security concerns
+> 11. Test quality
+> 12. Documentation accuracy
+> 13. Assessment scope compliance
+>
+> Classify findings as:
+>
+> - blocker
+> - important
+> - optional
+>
+> Then fix only blocker and important findings.
+>
+> Do not add new major features.
+>
+> After fixes, run:
+>
+> - Go formatting
+> - Go tests
+> - Go vet
+> - frontend lint
+> - frontend type checking
+> - frontend tests
+> - frontend production build
+> - Docker Compose build
+> - local smoke test if Docker is available
+>
+> Provide:
+>
+> - verification results
+> - remaining known limitations
+> - exact demo steps
+> - suggested final Git commit
+
+<details><summary>15 previous messages</summary>
+
+> I’ll begin with a read-only assessment across all thirteen areas and classify concrete findings before touching files. Once that report is complete, I’ll fix only blocker and important issues, then run the full verification and a Docker smoke test if available.
+>
+> <details><summary>Explored 23 files, a list, ran 2 commands</summary>
+>
+> <details><summary>Explored 2 files</summary>
+>
+> - Read `./docs/ai-interaction-log.md`
+> - Read `./docker-compose.yml`
+>
+> </details>
+>
+> - Ran `git status --short`
+>
+> <details><summary>Explored 17 files, a list</summary>
+>
+> - Read `./README.md`
+> - Listed files
+> - Read `./Makefile`
+> - Read `./apps/control-plane/internal/usecase/environmentapi/service.go`
+> - Read `./apps/web-console/Dockerfile`
+> - Read `./apps/web-console/src/api/client.ts`
+> - Read `./apps/web-console/server.mjs`
+> - Read `./apps/control-plane/internal/storage/sqlite/environment_repository.go`
+> - Read `./apps/web-console/src/pages/DashboardPage.tsx`
+> - Read `./apps/control-plane/go.mod`
+> - Read `./demo/demo-service/Dockerfile`
+> - Read `./apps/control-plane/internal/executor/docker/mapping.go`
+> - Read `./apps/web-console/package.json`
+> - Read `./apps/control-plane/Dockerfile`
+> - Read `./demo/demo-service/server.go`
+> - Read `./apps/control-plane/internal/executor/executortest/fake.go`
+> - Read `./apps/control-plane/internal/domain/transitions_test.go`
+> - Read `./apps/web-console/src/pages/EnvironmentDetailsPage.tsx`
+>
+> </details>
+>
+> - Ran `wc -c CONTRIBUTING.md LICENSE .editorconfig .gitignore`
+>
+> <details><summary>Explored 4 files</summary>
+>
+> - Read `./apps/control-plane/internal/usecase/environmentlifecycle/lifecycle_test.go`
+> - Read `./apps/control-plane/internal/storage/sqlite/recovery.go`
+> - Read `./apps/control-plane/internal/server/errors.go`
+> - Read `./apps/control-plane/internal/usecase/createenvironment/create_test.go`
+>
+> </details>
+>
+> </details>
+>
+> Read-only assessment complete. No files have been changed.
+>
+> 1. Functional correctness
+>
+> - blocker — In Compose, the control plane health-checks provisioned containers through `http://localhost:<dynamic-port>`. From inside the control-plane container, that resolves to the control-plane container rather than the Docker host, so a healthy demo can fail provisioning even though its published host port is working.
+> - important — `applicationVersion` is passed during initial creation but is not persisted with the environment, so retry silently loses the requested version.
+> - optional — The dashboard exposes a URL for failed environments when runtime metadata exists; the details page correctly limits “Open Environment” to READY.
+>
+> 2. Workflow-state correctness
+>
+> - important — When a step fails, later steps remain PENDING even though the workflow is terminal. They should be SKIPPED with an explanatory message.
+> - optional — A crash in the very small window before a newly persisted workflow transitions from PENDING to RUNNING is not covered by the explicit stale-RUNNING recovery policy.
+>
+> 3. Concurrency risks
+>
+> - important — Destroy/retry admission is a read-then-write sequence without per-environment serialization or compare-and-set persistence. Concurrent lifecycle requests can both observe FAILED/READY and start distinct workflows. The existing duplicate-start guard is keyed by workflow ID and does not prevent this.
+> - optional — Completed workflow channels remain in the in-process `started` maps, creating an unbounded but slow memory leak.
+>
+> 4. Failure handling
+>
+> - No blocker found. Panic recovery, request-independent background contexts, wrapped infrastructure errors, startup database errors, Docker startup checks, and API request IDs are present.
+> - optional — Failure-persistence calls intentionally ignore secondary database errors, so a database outage during failure handling can leave partially updated audit state.
+>
+> 5. Docker resource cleanup
+>
+> - important — `make reset` deletes the database volume but does not remove dynamically provisioned containers. That can erase EnvPilot’s ownership records while leaving labeled containers orphaned.
+> - No issue found with normal destroy idempotency for already-absent containers.
+>
+> 6. SQLite consistency
+>
+> - optional — Initial environment creation and workflow creation happen in separate transactions. A workflow insert failure can leave an active PENDING environment without a workflow.
+> - optional — Lifecycle workflow creation and environment-state updates are similarly separate; this matters mainly during database failure.
+>
+> 7. API design
+>
+> - No blocker or important issue found. Versioned routes, 202 responses, consistent error envelopes, request IDs, and domain-error mappings are appropriate for the assessment.
+> - optional — List performs one latest-workflow query per environment and has no pagination; acceptable at assessment scale.
+>
+> 8. Frontend UX
+>
+> - No blocker found. Loading/error/empty states, polling, action gating, confirmation, and workflow visualization are strong.
+> - optional — Failed runtime URLs should not appear actionable on the dashboard.
+>
+> 9. Local setup
+>
+> - blocker — The Compose health-routing issue prevents the primary healthy provisioning demo.
+> - important — Reset cleanup is incomplete as noted above.
+> - Otherwise the Makefile, named volume, service health checks, and same-origin proxy are clear.
+>
+> 10. Security concerns
+>
+> - No new blocker beyond the explicitly documented Docker socket risk.
+> - optional — Demo containers have an image allowlist and no privileged mode or host mounts, but do not set resource limits, a read-only root filesystem, or dropped capabilities.
+> - optional — There is intentionally no authentication, matching the assessment scope.
+>
+> 11. Test quality
+>
+> - important — Pure Docker mapping tests do not cover the distinction between the browser-facing localhost URL and the control-plane health-check host.
+> - important — No test verifies that terminal workflow failures skip subsequent steps.
+> - Existing lifecycle, API, SQLite, recovery, and frontend tests are otherwise focused and deterministic.
+>
+> 12. Documentation accuracy
+>
+> - important — Current local instructions imply the healthy demo works through Compose, but the health-routing bug contradicts that.
+> - optional — `LICENSE`, `CONTRIBUTING.md`, and `.editorconfig` remain effectively empty.
+>
+> 13. Assessment scope compliance
+>
+> - No scope violation found. The project remains a single Go control plane, React console, SQLite store, and Docker executor without Kubernetes, Kafka, microservices, or unnecessary platform components.
+>
+> I’ll now fix the two blockers and the important findings: Docker health routing, persisted application version, lifecycle admission serialization, skipped terminal steps, reset cleanup, and their focused tests/documentation. I’ll leave the optional transactional redesign and production hardening items as explicit limitations.
+>
+> <details><summary>Edited 21 files, explored 4 files, a search</summary>
+>
+> - Wrote `./apps/control-plane/cmd/api/main.go` (+1 -1)
+> - Wrote `./apps/control-plane/internal/config/config.go` (+3 -0)
+> - Wrote `./apps/control-plane/internal/executor/docker/executor.go` (+27 -2)
+> - Wrote `./docker-compose.yml` (+3 -0)
+>
+> <details><summary>Explored a file, a search</summary>
+>
+> - Read `./apps/control-plane/internal/executor/docker/mapping_test.go`
+> - Searched for `Options\{` in `control-plane`
+>
+> </details>
+>
+> - Wrote `./apps/control-plane/internal/domain/models.go` (+1 -0)
+> - Wrote `./apps/control-plane/internal/server/environment_handler.go` (+2 -0)
+> - Wrote `./apps/control-plane/internal/storage/sqlite/environment_repository.go` (+6 -4)
+> - Wrote `./apps/control-plane/internal/storage/sqlite/schema.go` (+37 -0)
+> - Wrote `./apps/control-plane/internal/usecase/createenvironment/create.go` (+1 -0)
+> - Wrote `./apps/control-plane/internal/usecase/environmentlifecycle/runner.go` (+1 -1)
+> - Wrote `./apps/web-console/src/api/environments.ts` (+1 -0)
+> - Wrote `./apps/web-console/src/pages/EnvironmentDetailsPage.tsx` (+1 -0)
+>
+> <details><summary>Explored 2 files</summary>
+>
+> - Read `./apps/control-plane/internal/storage/sqlite/environment_repository.go`
+> - Read `./apps/control-plane/internal/server/environment_handler.go`
+>
+> </details>
+>
+> - Wrote `./apps/control-plane/internal/usecase/environmentlifecycle/lifecycle.go` (+7 -0)
+>
+> - Wrote `./apps/control-plane/internal/storage/sqlite/recovery.go` (+8 -0)
+> - Wrote `./apps/control-plane/internal/usecase/createenvironment/runner.go` (+14 -0)
+> - Wrote `./apps/control-plane/internal/usecase/environmentlifecycle/runner.go` (+14 -0)
+>
+> - Wrote `./Makefile` (+6 -2)
+> - Wrote `./README.md` (+7 -3)
+>
+> - Wrote `./apps/control-plane/internal/executor/docker/mapping_test.go` (+14 -0)
+> - Wrote `./apps/control-plane/internal/storage/sqlite/repository_test.go` (+2 -2)
+> - Wrote `./apps/control-plane/internal/usecase/createenvironment/create_test.go` (+9 -1)
+> - Wrote `./apps/control-plane/internal/usecase/environmentlifecycle/lifecycle_test.go` (+5 -1)
+>
+> <details><summary>Explored a file</summary>
+>
+> - Read `./apps/control-plane/internal/usecase/environmentlifecycle/lifecycle_test.go`
+>
+> </details>
+>
+> - Wrote `./apps/control-plane/internal/usecase/environmentlifecycle/lifecycle_test.go` (+3 -0)
+>
+> - Wrote `./apps/control-plane/internal/storage/sqlite/repository_test.go` (+42 -0)
+>
+> - Wrote `./README.md` (+12 -0)
+>
+> </details>
+>
+> The blocker fixes are implemented: Compose health checks now use the Docker host gateway while public URLs remain localhost, and reset now removes only EnvPilot-labeled runtime containers before deleting state. Workflow failures close later steps as SKIPPED, retry preserves application version through an explicit SQLite migration, and lifecycle admission is serialized to prevent overlapping destroy/retry requests. I’m formatting and running focused tests before the full validation.
+>
+> <details><summary>Ran 4 commands</summary>
+>
+> - Ran `docker run --rm -v "/Users/jaysonarasteh/Desktop/project/ephemeral/apps/control-plane:/workspace" -w /workspace golang:1.24 gofmt -w cmd/api/main.go internal/config/config.go internal/domain/models.go internal/executor/docker/executor.go internal/executor/docker/mapping_test.go internal/server/environment_handler.go internal/storage/sqlite/environment_repository.go internal/storage/sqlite/recovery.go internal/storage/sqlite/repository_test.go internal/storage/sqlite/schema.go internal/usecase/createenvironment/create.go internal/usecase/createenvironment/create_test.go internal/usecase/createenvironment/runner.go internal/usecase/environmentlifecycle/lifecycle.go internal/usecase/environmentlifecycle/lifecycle_test.go internal/usecase/environmentlifecycle/runner.go`
+> - Ran `docker run --rm -v "/Users/jaysonarasteh/Desktop/project/ephemeral/apps/control-plane:/workspace" -w /workspace golang:1.24 go test ./...`
+> - Ran `make test`
+> - Auto-review: approved
+> - Auto-review risk: medium
+> - Auto-review rationale: Running the user-requested full repository test and type-check workflow is a bounded local verification step using Docker and installed dependencies with only reversible project-local effects.
+> - Ran `make lint`
+> - Auto-review: approved
+> - Auto-review risk: medium
+> - Auto-review rationale: Running the requested lint and vet checks is a bounded local verification step using Dockerized tools and frontend linting with only reversible project-local effects.
+>
+> </details>
+>
+> All unit, repository, API, frontend, formatting, vet, and lint checks pass after the fixes. I’m building every Compose image next, then I’ll exercise a real healthy create/open/destroy flow through the running local stack.
+>
+> <details><summary>Ran 5 commands</summary>
+>
+> - Ran `make build`
+> - Auto-review: approved
+> - Auto-review risk: medium
+> - Auto-review rationale: Building the user-requested Compose and demo Docker images is a bounded local verification step with reversible Docker/image side effects and no clear data exfiltration or irreversible damage.
+> - Ran `docker compose up --build --detach`
+> - Auto-review: approved
+> - Auto-review risk: medium
+> - Auto-review rationale: Starting the user-requested local Compose stack for the final smoke test is a bounded local operation with reversible service/container side effects and no clear external data export.
+> - Ran `curl --fail --silent --show-error http://localhost:3000/healthz`
+> - Auto-review: approved
+> - Auto-review risk: low
+> - Auto-review rationale: Auto-review returned a low-risk allow decision.
+> - Ran `docker compose ps`
+> - Auto-review: approved
+> - Auto-review risk: low
+> - Auto-review rationale: Auto-review returned a low-risk allow decision.
+> - Ran `curl --fail --silent --show-error -X POST http://localhost:3000/api/v1/environments -H 'Content-Type: application/json' -d '{"name":"final-smoke-20260717","image":"envpilot/demo-service:healthy","containerPort":8080,"simulateFailure":false,"applicationVersion":"final-review"}'`
+> - Auto-review: approved
+> - Auto-review risk: medium
+> - Auto-review rationale: Creating one user-requested local demo environment for the final smoke test is a bounded local mutation that starts a container but has no clear external data export or irreversible damage.
+>
+> </details>
+>
+> The live stack accepted a real healthy environment and persisted its requested application version. I’m polling it to terminal state now; this directly validates the corrected host-gateway health route rather than only its unit mapping.
+>
+> <details><summary>Ran 5 commands</summary>
+>
+> - Ran `curl --fail --silent --show-error http://localhost:3000/api/v1/environments/258e45306902f07ca448bc9e62ff8dff`
+> - Auto-review: approved
+> - Auto-review risk: low
+> - Auto-review rationale: Auto-review returned a low-risk allow decision.
+> - Ran `curl --fail --silent --show-error http://localhost:52688/info`
+> - Auto-review: approved
+> - Auto-review risk: low
+> - Auto-review rationale: Auto-review returned a low-risk allow decision.
+> - Ran `curl --fail --silent --show-error http://localhost:52688/health`
+> - Auto-review: approved
+> - Auto-review risk: low
+> - Auto-review rationale: Auto-review returned a low-risk allow decision.
+> - Ran `curl --fail --silent --show-error -X DELETE http://localhost:3000/api/v1/environments/258e45306902f07ca448bc9e62ff8dff`
+> - Auto-review: approved
+> - Auto-review risk: medium
+> - Auto-review rationale: Destroying the specific smoke-test environment just created for the user-requested local validation is a bounded cleanup action with limited local side effects.
+> - Ran `curl --fail --silent --show-error http://localhost:3000/api/v1/environments/258e45306902f07ca448bc9e62ff8dff`
+> - Auto-review: approved
+> - Auto-review risk: low
+> - Auto-review rationale: This is a read-only local status check of the specific smoke-test environment the user authorized creating and destroying.
+>
+> </details>
+>
+> The end-to-end smoke test passed: the healthy workflow reached READY, the public URL returned healthy status and the saved application version, and the destroy workflow reached DESTROYED with runtime metadata cleared. I’m confirming the Docker container is gone, then stopping only the Compose services while preserving SQLite audit history.
+>
+> <details><summary>Ran 7 commands</summary>
+>
+> - Ran `docker ps -a --filter label=envpilot.environment.id=258e45306902f07ca448bc9e62ff8dff --format '{{.ID}} {{.Status}}'`
+> - Auto-review: approved
+> - Auto-review risk: low
+> - Auto-review rationale: Auto-review returned a low-risk allow decision.
+> - Ran `docker compose down --remove-orphans`
+> - Auto-review: approved
+> - Auto-review risk: low
+> - Auto-review rationale: Auto-review returned a low-risk allow decision.
+> - Ran `git diff --check`
+> - Ran `git status --short`
+> - Ran `git diff --stat`
+> - Ran `docker compose config --quiet`
+> - Ran `make -n reset`
+>
+> </details>
+>
+> All requested validation is complete and clean. One final housekeeping step remains: the smoke environment was destroyed through EnvPilot, but its audit row is intentionally retained by the product. I’m removing only that known smoke-test record from the named SQLite volume so the user-facing dashboard is left as it was before verification.
+>
+> <details><summary>Ran 2 commands</summary>
+>
+> - Ran `docker run --rm -v envpilot-data:/data alpine:3.22 sh -c 'apk add --no-cache sqlite >/dev/null && sqlite3 /data/envpilot.db "DELETE FROM environments WHERE id = '\''258e45306902f07ca448bc9e62ff8dff'\'';"'`
+> - Ran `docker run --rm -v envpilot-data:/data alpine:3.22 sh -c 'apk add --no-cache sqlite >/dev/null && test "$(sqlite3 /data/envpilot.db "SELECT count(*) FROM environments WHERE id = '\''258e45306902f07ca448bc9e62ff8dff'\'';")" = 0'`
+>
+> </details>
+>
+> <details><summary>Plan</summary>
+>
+> - [x] Inspect repository and classify findings across all requested areas
+> - [x] Report findings before making changes
+> - [x] Fix blocker and important findings only
+> - [x] Run full validation and local smoke test
+> - [x] Summarize verification, limitations, demo steps, and commit
+>
+> </details>
+</details>
+
+Final assessment is complete. No blocker or important findings remain after the targeted fixes.
+
+## Fixes applied
+
+- Corrected Docker health routing under Compose using `host.docker.internal` with Linux `host-gateway` support.
+- Kept browser-facing environment URLs on `localhost`.
+- Persisted `applicationVersion` through SQLite, API responses, environment details, and retries.
+- Added a deterministic migration for existing SQLite databases.
+- Serialized lifecycle admission to prevent overlapping destroy/retry workflows.
+- Marked remaining workflow steps SKIPPED after failure or startup recovery.
+- Updated `make reset` to remove only containers labeled `envpilot.managed=true` before deleting database state.
+- Added focused tests for health URL mapping, migration, version retention, and skipped steps.
+- Updated README behavior and demo instructions.
+
+## Verification results
+
+All requested checks passed:
+
+```bash
+make test
+make lint
+make build
+docker compose config --quiet
+```
+
+This covered:
+
+- Go formatting: passed
+- Go tests: passed
+- Go vet: passed
+- Demo-service tests: passed
+- Frontend lint: passed
+- Frontend type checking: passed
+- Frontend tests: 20 passed
+- Frontend production build: passed
+- Control-plane image build: passed
+- Web-console image build: passed
+- Healthy and unhealthy demo image builds: passed
+
+The live Compose smoke test also passed:
+
+- control plane became healthy
+- web console became reachable
+- API proxy worked
+- healthy environment reached READY
+- all five create steps reached SUCCEEDED
+- public `/health` returned healthy
+- `/info` returned the requested environment name and application version
+- destroy workflow reached DESTROYED
+- Docker container was confirmed removed
+
+The temporary smoke-test database record was removed afterward, and Compose services were stopped without touching pre-existing data.
+
+## Remaining known limitations
+
+These are optional improvements and appropriate for the assessment timebox:
+
+- Initial environment and workflow creation use separate repository transactions. A database failure between them could leave an orphaned PENDING environment.
+- Startup recovery targets RUNNING workflows, not the narrow pre-execution PENDING crash window.
+- Completed in-process workflow entries are retained until process restart.
+- Failure recovery cannot guarantee audit persistence during a simultaneous database outage.
+- List uses one latest-workflow query per environment and has no pagination.
+- Demo containers do not yet have CPU/memory limits, dropped capabilities, or read-only root filesystems.
+- The dashboard can display retained runtime URLs for failed environments, although the details page only offers “Open Environment” for READY.
+- `LICENSE`, `CONTRIBUTING.md`, and `.editorconfig` remain minimal.
+- Production observability, authentication, distributed execution, and durable queues remain intentionally out of scope.
+
+## Exact demo steps
+
+1. Start EnvPilot:
+
+```bash
+make dev
+```
+
+2. Open:
+
+```text
+http://localhost:3000
+```
+
+3. Create a healthy environment:
+
+```text
+Name: healthy-demo
+Profile: Healthy demo service
+Application version: 1.0.0
+```
+
+4. Watch these steps reach SUCCEEDED:
+
+```text
+VALIDATE_REQUEST
+CREATE_CONTAINER
+START_CONTAINER
+CHECK_HEALTH
+MARK_READY
+```
+
+5. Click **Open environment** and inspect `/`, `/health`, or `/info`.
+
+6. Destroy the healthy environment and watch:
+
+```text
+DESTROY_CONTAINER
+MARK_DESTROYED
+```
+
+7. Create the failure demonstration:
+
+```text
+Name: failure-demo
+Profile: Simulated health failure
+```
+
+8. Observe `CHECK_HEALTH` become FAILED and `MARK_READY` become SKIPPED.
+
+9. Click **Retry**. EnvPilot removes the known failed container before reprovisioning. Because the selected profile remains intentionally unhealthy, the retry deterministically demonstrates the failure path again.
+
+10. Destroy the failed environment.
+
+11. Stop services:
+
+```bash
+make clean
+```
+
+To remove all EnvPilot demo containers and reset SQLite:
+
+```bash
+make reset
+```
+
+Suggested final commit:
+
+```text
+fix: harden EnvPilot lifecycle consistency and Docker execution
+```
